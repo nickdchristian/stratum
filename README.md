@@ -7,7 +7,7 @@ Built with **Python**, **Typer**, and **Boto3**, Stratum provides a modular fram
 ## Core Capabilities
 
 * **Dual-Lens Audits:** A unified interface to toggle between `security` (compliance, access control) and `cost` (waste, optimization) checks.
-* **Extensible Architecture:** Built on a plugin-based design, allowing seamless addition of new services (EC2, RDS, Lambda) without altering core logic.
+* **Extensible Architecture:** Built on a plugin-based design, allowing seamless addition of new services without altering core logic.
 * **Safe Defaults:** Strictly read-only operations. Stratum analyzes resources but never modifies configurations without explicit user intervention.
 * **Developer-First Output:** Clean, structured terminal output designed for quick scanning by engineers, not just auditors.
 
@@ -24,7 +24,7 @@ Built with **Python**, **Typer**, and **Boto3**, Stratum provides a modular fram
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/nickdchristian/stratum.git](https://github.com/nickdchristian/stratum.git)
+    git clone https://github.com/nickdchristian/stratum.git
     cd stratum
     ```
 
