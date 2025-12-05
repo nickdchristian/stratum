@@ -3,9 +3,9 @@ from enum import IntEnum
 
 class RiskWeight(IntEnum):
     """
-    Standardized Risk Weights.
+    Standardized Risk Weights for scoring audit results.
 
-    The score is calculated based on: Impact (1-10) * Likelihood (1-10).
+    The score is loosely calculated based on: Impact (1-10) * Likelihood (1-10).
     """
 
     # Impact: Catastrophic (Data Breach, Full Compromise)
@@ -21,7 +21,7 @@ class RiskWeight(IntEnum):
     MEDIUM = 20
 
     # Impact: Low (Hygiene, Tagging, Informational)
-    # Likelihood: N/A
+    # Likelihood: Low or N/A
     LOW = 5
 
     NONE = 0

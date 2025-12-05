@@ -1,6 +1,11 @@
 import typer
-from stratum.core.runner import run_scan  # Import the shared runner
-from stratum.services.s3.audit import S3Scanner, S3Result, S3ScanType
+
+from stratum.core.runner import run_scan
+from stratum.services.s3.domains.security import (
+    S3SecurityScanner,
+    S3SecurityResult,
+    S3SecurityScanType,
+)
 
 app = typer.Typer(help="S3 Security Audits")
 
@@ -9,19 +14,23 @@ app = typer.Typer(help="S3 Security Audits")
 def security_scan_all(
     verbose: bool = False,
     fail_on_risk: bool = typer.Option(
-        False, "--fail-on-risk", help="Exit code 1 if risks found"
+        False, "--fail-on-risk", help="Exit code 1 if risks found (for CI/CD)"
     ),
-    json_output: bool = typer.Option(False, "--json", help="Output JSON"),
-    csv_output: bool = typer.Option(False, "--csv", help="Output CSV"),
+    json_output: bool = typer.Option(
+        False, "--json", help="Output raw JSON (silences spinner)"
+    ),
+    csv_output: bool = typer.Option(
+        False, "--csv", help="Output CSV (silences spinner)"
+    ),
     failures_only: bool = typer.Option(
-        False, "--failures-only", help="Show failures only"
+        False, "--failures-only", help="Only display resources with risks"
     ),
 ):
-    """Run ALL S3 Security checks."""
+    """Run ALL S3 Security checks (Encryption and Public Access)."""
     run_scan(
-        S3Scanner,
-        S3Result,
-        S3ScanType.ALL,
+        S3SecurityScanner,
+        S3SecurityResult,
+        S3SecurityScanType.ALL,
         verbose,
         fail_on_risk,
         json_output,
@@ -42,11 +51,11 @@ def encryption_scan(
         False, "--failures-only", help="Show failures only"
     ),
 ):
-    """Scan ONLY for default encryption."""
+    """Scan ONLY for default encryption configuration."""
     run_scan(
-        S3Scanner,
-        S3Result,
-        S3ScanType.ENCRYPTION,
+        S3SecurityScanner,
+        S3SecurityResult,
+        S3SecurityScanType.ENCRYPTION,
         verbose,
         fail_on_risk,
         json_output,
@@ -69,9 +78,9 @@ def public_access_scan(
 ):
     """Scan ONLY for public access blocks."""
     run_scan(
-        S3Scanner,
-        S3Result,
-        S3ScanType.PUBLIC_ACCESS,
+        S3SecurityScanner,
+        S3SecurityResult,
+        S3SecurityScanType.PUBLIC_ACCESS,
         verbose,
         fail_on_risk,
         json_output,

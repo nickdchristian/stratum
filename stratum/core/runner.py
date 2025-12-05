@@ -1,6 +1,7 @@
-import sys
 import logging
+import sys
 from typing import Type
+
 from botocore.exceptions import ClientError, NoCredentialsError
 from rich.console import Console
 
@@ -12,6 +13,7 @@ console = Console()
 
 
 def setup_logging(verbose: bool):
+    """Configures global logging. Default is WARNING to keep CLI output clean."""
     log_level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
         level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -29,13 +31,22 @@ def run_scan(
     failures_only: bool,
 ):
     """
-    Universal Runner.
-    Can be used by S3 Security, EC2 Costs, RDS Compliance, etc.
+    Universal Runner Entrypoint.
+
+    Orchestrates the lifecycle of a scan:
+    1. Setup Logging
+    2. Instantiate Scanner
+    3. Execute Scan (handling AWS Auth errors)
+    4. Filter Results
+    5. Present Data (JSON/CSV/Table)
+    6. Handle Exit Codes
     """
     setup_logging(verbose)
     scanner = scanner_cls(check_type=check_type)
 
     try:
+        # Silent mode is enabled for structured output (JSON/CSV) so the
+        # loading spinner doesn't corrupt the output stream.
         results = scanner.scan(silent=(json_output or csv_output))
     except NoCredentialsError:
         console.print(
@@ -44,6 +55,7 @@ def run_scan(
         sys.exit(1)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
+        # Handle common auth issues specifically for better UX
         if error_code in [
             "InvalidClientTokenId",
             "SignatureDoesNotMatch",
@@ -58,7 +70,7 @@ def run_scan(
         sys.exit(1)
 
     if failures_only:
-        results = [r for r in results if r.has_risk]
+        results = [result for result in results if result.has_risk]
 
     presenter = AuditPresenter(results, result_type=result_cls, check_type=check_type)
 

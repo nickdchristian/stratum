@@ -1,9 +1,13 @@
-from unittest.mock import patch
 from datetime import datetime
-from stratum.services.s3.audit import S3Scanner, S3Result
+from unittest.mock import patch
+
+from stratum.services.s3.domains.security import (
+    S3SecurityScanner,
+    S3SecurityResult,
+)
 
 
-@patch("stratum.services.s3.audit.S3Client")
+@patch("stratum.services.s3.domains.security.S3Client")
 def test_scanner_analyze_resource(mock_client_cls):
     mock_client = mock_client_cls.return_value
     mock_client.get_bucket_region.return_value = "eu-west-1"
@@ -16,10 +20,10 @@ def test_scanner_analyze_resource(mock_client_cls):
         "CreationDate": datetime(2023, 5, 5),
     }
 
-    scanner = S3Scanner()
+    scanner = S3SecurityScanner()
     result = scanner.analyze_resource(raw_bucket_data)
 
-    assert isinstance(result, S3Result)
+    assert isinstance(result, S3SecurityResult)
     assert result.resource_name == "risk-bucket"
     assert result.region == "eu-west-1"
 

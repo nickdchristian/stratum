@@ -1,5 +1,5 @@
 from stratum.core.scoring import RiskWeight
-from stratum.services.s3.audit import S3ScanType
+from stratum.services.s3.domains.security import S3SecurityScanType
 
 
 def test_s3_safe(base_s3_result):
@@ -36,7 +36,7 @@ def test_s3_mixed_risk(base_s3_result):
 
 def test_s3_check_type_filtering(base_s3_result):
     # If we ONLY scan for encryption, public access failure should be ignored
-    base_s3_result.check_type = S3ScanType.ENCRYPTION
+    base_s3_result.check_type = S3SecurityScanType.ENCRYPTION
     base_s3_result.public_access_blocked = (
         False  # This is a critical risk, but out of scope
     )
