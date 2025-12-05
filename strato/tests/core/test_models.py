@@ -1,4 +1,4 @@
-from stratum.core.models import AuditResult
+from strato.core.models import AuditResult
 
 
 def test_risk_level_mapping():

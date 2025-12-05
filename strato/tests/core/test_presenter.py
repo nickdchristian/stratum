@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
-from stratum.core.presenter import AuditPresenter
-from stratum.core.models import AuditResult
+from strato.core.presenter import AuditPresenter
+from strato.core.models import AuditResult
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def sample_results():
 
 
 def test_print_json(sample_results):
-    with patch("stratum.core.presenter.console") as mock_console:
+    with patch("strato.core.presenter.console") as mock_console:
         presenter = AuditPresenter(sample_results, AuditResult)
         presenter.print_json()
 

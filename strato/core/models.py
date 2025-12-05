@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict, field
 from typing import List, Any, Dict
 
-from stratum.core.scoring import RiskWeight
+from strato.core.scoring import RiskWeight
 
 
 @dataclass

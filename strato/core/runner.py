@@ -5,9 +5,9 @@ from typing import Type
 from botocore.exceptions import ClientError, NoCredentialsError
 from rich.console import Console
 
-from stratum.core.models import AuditResult
-from stratum.core.presenter import AuditPresenter
-from stratum.core.scanner import BaseScanner
+from strato.core.models import AuditResult
+from strato.core.presenter import AuditPresenter
+from strato.core.scanner import BaseScanner
 
 console = Console()
 

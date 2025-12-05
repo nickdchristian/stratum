@@ -1,13 +1,13 @@
 from datetime import datetime
 from unittest.mock import patch
 
-from stratum.services.s3.domains.security import (
+from strato.services.s3.domains.security import (
     S3SecurityScanner,
     S3SecurityResult,
 )
 
 
-@patch("stratum.services.s3.domains.security.S3Client")
+@patch("strato.services.s3.domains.security.S3Client")
 def test_scanner_analyze_resource(mock_client_cls):
     mock_client = mock_client_cls.return_value
     mock_client.get_bucket_region.return_value = "eu-west-1"

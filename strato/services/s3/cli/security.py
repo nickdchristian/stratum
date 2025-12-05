@@ -1,7 +1,7 @@
 import typer
 
-from stratum.core.runner import run_scan
-from stratum.services.s3.domains.security import (
+from strato.core.runner import run_scan
+from strato.services.s3.domains.security import (
     S3SecurityScanner,
     S3SecurityResult,
     S3SecurityScanType,
