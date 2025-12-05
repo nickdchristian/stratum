@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Any, Generic, TypeVar, Iterable
+from typing import Any, TypeVar
 
 from rich.console import Console
 
@@ -10,7 +11,7 @@ T = TypeVar("T", bound=AuditResult)
 console = Console(stderr=True)
 
 
-class BaseScanner(ABC, Generic[T]):
+class BaseScanner[AuditResultType: AuditResult](ABC):
     """Abstract base class for all resource scanners."""
 
     def __init__(self, check_type: str = "ALL"):
@@ -32,7 +33,7 @@ class BaseScanner(ABC, Generic[T]):
         """Transforms a raw resource into a typed AuditResult."""
         pass
 
-    def scan(self, silent: bool = False) -> List[T]:
+    def scan(self, silent: bool = False) -> list[T]:
         """Orchestrates the fetching and analyzing of resources."""
         results = []
         # fetch_resources is called before threading to gather the initial iterator

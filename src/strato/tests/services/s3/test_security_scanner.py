@@ -2,8 +2,8 @@ from datetime import datetime
 from unittest.mock import patch
 
 from strato.services.s3.domains.security import (
-    S3SecurityScanner,
     S3SecurityResult,
+    S3SecurityScanner,
 )
 
 

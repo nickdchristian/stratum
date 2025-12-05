@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import patch
-from strato.core.presenter import AuditPresenter
+
+import pytest
+
 from strato.core.models import AuditResult
+from strato.core.presenter import AuditPresenter
 
 
 @pytest.fixture

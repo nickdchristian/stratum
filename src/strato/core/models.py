@@ -1,5 +1,5 @@
-from dataclasses import dataclass, asdict, field
-from typing import List, Any, Dict
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from strato.core.scoring import RiskWeight
 
@@ -15,7 +15,7 @@ class AuditResult:
     resource_name: str
     region: str
     risk_score: int = 0
-    risk_reasons: List[str] = field(default_factory=list)
+    risk_reasons: list[str] = field(default_factory=list)
 
     @property
     def has_risk(self) -> bool:
@@ -35,16 +35,16 @@ class AuditResult:
             return "LOW"
         return "SAFE"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes the object for JSON output."""
         return asdict(self)
 
     @classmethod
-    def get_headers(cls, check_type: str = "ALL") -> List[str]:
+    def get_headers(cls, check_type: str = "ALL") -> list[str]:
         """Returns column headers for Table and CSV output."""
         return ["Resource", "Region", "Risk Level", "Reasons"]
 
-    def get_table_row(self) -> List[str]:
+    def get_table_row(self) -> list[str]:
         """
         Returns a list of strings formatted for the Rich Table library.
         Includes color tags (e.g., [red]CRITICAL[/red]).
@@ -63,7 +63,7 @@ class AuditResult:
 
         return [self.resource_name, self.region, risk_level_render, risk_reasons_render]
 
-    def get_csv_row(self) -> List[str]:
+    def get_csv_row(self) -> list[str]:
         """
         Returns a raw list of strings for CSV output.
         Color tags are stripped/omitted.

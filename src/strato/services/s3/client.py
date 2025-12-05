@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
@@ -20,7 +18,7 @@ class S3Client:
         retry_config = Config(retries={"mode": "adaptive", "max_attempts": 10})
         self._client = boto3.client("s3", config=retry_config)
 
-    def list_buckets(self) -> List[Dict]:
+    def list_buckets(self) -> list[dict]:
         """Lists all buckets in the account using pagination."""
         paginator = self._client.get_paginator("list_buckets")
         buckets = []

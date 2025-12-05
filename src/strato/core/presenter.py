@@ -1,6 +1,5 @@
 import csv
 import sys
-from typing import List, Type
 
 from rich.console import Console
 from rich.table import Table
@@ -18,8 +17,8 @@ class AuditPresenter:
 
     def __init__(
         self,
-        results: List[AuditResult],
-        result_type: Type[AuditResult],
+        results: list[AuditResult],
+        result_type: type[AuditResult],
         check_type: str = "ALL",
     ):
         self.results = results

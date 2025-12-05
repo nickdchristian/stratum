@@ -1,7 +1,8 @@
-from dataclasses import dataclass, asdict
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import StrEnum, auto
-from typing import List, Dict, Iterable, Any
+from typing import Any
 
 from strato.core.models import AuditResult
 from strato.core.scanner import BaseScanner
@@ -36,7 +37,7 @@ class S3SecurityResult(AuditResult):
 
         Logic:
         - Public Access: Critical risk (exposed to internet).
-        - No Encryption: Medium risk (compliance violation, but requires access to read).
+        - No Encryption: Medium risk (compliance violation, but requires read access).
         """
         self.risk_score = 0
         self.risk_reasons = []
@@ -56,7 +57,7 @@ class S3SecurityResult(AuditResult):
                 self.risk_score += RiskWeight.MEDIUM
                 self.risk_reasons.append("Encryption Missing")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Override to handle datetime serialization."""
         data = asdict(self)
         if self.creation_date:
@@ -64,7 +65,7 @@ class S3SecurityResult(AuditResult):
         return data
 
     @classmethod
-    def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> List[str]:
+    def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
         """Dynamic headers based on the specific scan type requested."""
         base_columns = ["Bucket Name", "Region"]
         risk_columns = ["Risk Level", "Reasons"]
@@ -81,7 +82,7 @@ class S3SecurityResult(AuditResult):
             + risk_columns
         )
 
-    def get_table_row(self) -> List[str]:
+    def get_table_row(self) -> list[str]:
         """Formatted row with color-coding for S3 specific attributes."""
         base_row = super().get_table_row()
         risk_level_render = base_row[2]
@@ -109,7 +110,7 @@ class S3SecurityResult(AuditResult):
             risk_reasons_render,
         )
 
-    def get_csv_row(self) -> List[str]:
+    def get_csv_row(self) -> list[str]:
         """Raw CSV row for S3 attributes."""
         base_row = super().get_csv_row()
         risk_level_render = base_row[2]
@@ -136,7 +137,7 @@ class S3SecurityResult(AuditResult):
         encryption_render,
         risk_level_render,
         risk_reasons_render,
-    ) -> List[str]:
+    ) -> list[str]:
         """Helper to assemble row columns based on scan type."""
         if self.check_type == S3SecurityScanType.ENCRYPTION:
             return [
@@ -181,11 +182,11 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
     def service_name(self) -> str:
         return f"S3 Security ({self.check_type})"
 
-    def fetch_resources(self) -> Iterable[Dict]:
+    def fetch_resources(self) -> Iterable[dict]:
         """Yields simple bucket dictionaries to the thread pool."""
         yield from self.client.list_buckets()
 
-    def analyze_resource(self, bucket_data: Dict) -> S3SecurityResult:
+    def analyze_resource(self, bucket_data: dict) -> S3SecurityResult:
         """
         Enriches a bucket dictionary with detailed security configurations.
         Performs additional API calls (Region, Public Access, Encryption).

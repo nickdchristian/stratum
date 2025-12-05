@@ -2,8 +2,8 @@ import typer
 
 from strato.core.runner import run_scan
 from strato.services.s3.domains.security import (
-    S3SecurityScanner,
     S3SecurityResult,
+    S3SecurityScanner,
     S3SecurityScanType,
 )
 

@@ -1,6 +1,5 @@
 import logging
 import sys
-from typing import Type
 
 from botocore.exceptions import ClientError, NoCredentialsError
 from rich.console import Console
@@ -21,8 +20,8 @@ def setup_logging(verbose: bool):
 
 
 def run_scan(
-    scanner_cls: Type[BaseScanner],
-    result_cls: Type[AuditResult],
+    scanner_cls: type[BaseScanner],
+    result_cls: type[AuditResult],
     check_type: str,
     verbose: bool,
     fail_on_risk: bool,
@@ -50,7 +49,8 @@ def run_scan(
         results = scanner.scan(silent=(json_output or csv_output))
     except NoCredentialsError:
         console.print(
-            "[bold red]Error:[/bold red] No AWS credentials found. Please configure your environment."
+            "[bold red]Error:[/bold red] No AWS credentials found."
+            " Please configure your environment."
         )
         sys.exit(1)
     except ClientError as e:
@@ -63,7 +63,8 @@ def run_scan(
             "ExpiredToken",
         ]:
             console.print(
-                "[bold red]Error:[/bold red] Invalid AWS credentials. Please check your keys/token."
+                "[bold red]Error:[/bold red] Invalid AWS credentials. "
+                "Please check your keys/token."
             )
         else:
             console.print(f"[bold red]Error:[/bold red] AWS API failed: {error_code}")
