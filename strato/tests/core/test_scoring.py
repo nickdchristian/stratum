@@ -1,4 +1,4 @@
-from stratum.core.scoring import RiskWeight
+from strato.core.scoring import RiskWeight
 
 
 def test_risk_weights_integrity():

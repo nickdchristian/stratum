@@ -3,10 +3,10 @@ from datetime import datetime
 from enum import StrEnum, auto
 from typing import List, Dict, Iterable, Any
 
-from stratum.core.models import AuditResult
-from stratum.core.scanner import BaseScanner
-from stratum.core.scoring import RiskWeight
-from stratum.services.s3.client import S3Client
+from strato.core.models import AuditResult
+from strato.core.scanner import BaseScanner
+from strato.core.scoring import RiskWeight
+from strato.services.s3.client import S3Client
 
 
 class S3SecurityScanType(StrEnum):

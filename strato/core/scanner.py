@@ -4,7 +4,7 @@ from typing import List, Any, Generic, TypeVar, Iterable
 
 from rich.console import Console
 
-from stratum.core.models import AuditResult
+from strato.core.models import AuditResult
 
 T = TypeVar("T", bound=AuditResult)
 console = Console(stderr=True)

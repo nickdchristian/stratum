@@ -1,5 +1,5 @@
-from stratum.core.scoring import RiskWeight
-from stratum.services.s3.domains.security import S3SecurityScanType
+from strato.core.scoring import RiskWeight
+from strato.services.s3.domains.security import S3SecurityScanType
 
 
 def test_s3_safe(base_s3_result):

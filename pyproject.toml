@@ -1,7 +1,7 @@
 [project]
-name = "stratum"
+name = "strato"
 version = "0.1.0"
-description = "Stratum is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure. It bridges the gap between security compliance and cloud cost optimization."
+description = "Strato is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -21,4 +21,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-stm = "stratum.main:app"
+sto = "strato.main:app"

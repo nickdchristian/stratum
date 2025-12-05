@@ -1,14 +1,14 @@
-# Stratum (stm)
+# Strato (sto)
 
-**Stratum** is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure. It bridges the gap between security compliance and cloud cost optimization (FinOps).
+**Strato** is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure.
 
-Built with **Python**, **Typer**, and **Boto3**, Stratum provides a modular framework to scan AWS services for specific risks and inefficiencies without the overhead of heavy compliance platforms.
+Built with **Python**, **Typer**, and **Boto3**, Strato provides a modular framework to scan AWS services for specific risks and inefficiencies without the overhead of heavy compliance platforms.
 
 ## Core Capabilities
 
 * **Multi-Domain Architecture:** A unified interface designed to support diverse auditing domains. While currently focused on security and cost, the framework is built to expand into compliance, operations, and reliability checks.
-* **Extensible Architecture:** Built on a plugin-based design, allowing seamless addition of new services without altering core logic.
-* **Safe Defaults:** Strictly read-only operations. Stratum analyzes resources but never modifies configurations without explicit user intervention.
+* **Extensible Architecture:** Built on a modular design, allowing seamless addition of new services without altering core logic.
+* **Safe Defaults:** Strictly read-only operations. Strato analyzes resources but never modifies configurations.
 * **Developer-First Output:** Clean, structured terminal output designed for quick scanning by engineers, not just auditors.
 
 ## Currently Supported Services
@@ -25,8 +25,8 @@ Built with **Python**, **Typer**, and **Boto3**, Stratum provides a modular fram
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/nickdchristian/stratum.git](https://github.com/nickdchristian/stratum.git)
-    cd stratum
+    git clone [https://github.com/nickdchristian/strato.git](https://github.com/nickdchristian/strato.git)
+    cd strato
     ```
 
 2.  **Sync dependencies and install locally:**
@@ -43,20 +43,20 @@ Built with **Python**, **Typer**, and **Boto3**, Stratum provides a modular fram
 
 4.  **Verify installation:**
     ```bash
-    stm --help
+    sto --help
     ```
 
     *Alternatively, you can run commands without activating the shell using `uv run`:*
     ```bash
-    uv run stm --help
+    uv run sto --help
     ```
 
 ## Usage
 
-Stratum uses the `stm` command. Commands are structured by **Service** → **Domain** → **Check**.
+Strato uses the `sto` command. Commands are structured by **Service** → **Domain** → **Check**.
 
 ### S3 Audits
 
 **Run a full security audit:**
 ```bash
-stm s3 security all
+sto s3 security all

@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime
-from stratum.services.s3.domains.security import (
+from strato.services.s3.domains.security import (
     S3SecurityResult,
     S3SecurityScanType,
 )

@@ -6,9 +6,9 @@ It aggregates sub-applications (like s3_app) into the main Typer app.
 
 import typer
 
-from stratum.services.s3.cli import s3_app
+from strato.services.s3.cli import s3_app
 
-app = typer.Typer(help="Stratum: AWS Auditor")
+app = typer.Typer(help="Strato: AWS Auditor")
 app.add_typer(s3_app, name="s3")
 
 if __name__ == "__main__":
