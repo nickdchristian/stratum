@@ -2,14 +2,13 @@
 
 **Strato** is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure.
 
-Built with **Python**, **Typer**, and **Boto3**, Strato provides a modular framework to scan AWS services for specific risks and inefficiencies without the overhead of heavy compliance platforms.
+Built with **Python**, **Typer**, and **Boto3**, Strato provides a modular framework to scan AWS services for specific risks and inefficiencies.
 
 ## Core Capabilities
 
-* **Multi-Domain Architecture:** A unified interface designed to support diverse auditing domains. While currently focused on security and cost, the framework is built to expand into compliance, operations, and reliability checks.
+* **Multi-Domain Architecture:** A unified interface designed to support diverse auditing domains.
 * **Extensible Architecture:** Built on a modular design, allowing seamless addition of new services without altering core logic.
-* **Safe Defaults:** Strictly read-only operations. Strato analyzes resources but never modifies configurations.
-* **Developer-First Output:** Clean, structured terminal output designed for quick scanning by engineers, not just auditors.
+* **Read-Only Operations:** Strictly read-only analysis. Strato scans resources but never modifies configurations.
 
 ## Currently Supported Services
 
@@ -25,7 +24,7 @@ Built with **Python**, **Typer**, and **Boto3**, Strato provides a modular frame
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/nickdchristian/strato.git](https://github.com/nickdchristian/strato.git)
+    git clone https://github.com/nickdchristian/strato.git
     cd strato
     ```
 
@@ -53,10 +52,4 @@ Built with **Python**, **Typer**, and **Boto3**, Strato provides a modular frame
 
 ## Usage
 
-Strato uses the `sto` command. Commands are structured by **Service** → **Domain** → **Check**.
-
-### S3 Audits
-
-**Run a full security audit:**
-```bash
-sto s3 security all
+See **[CLI.md](CLI.md)** for CLI documentation.
