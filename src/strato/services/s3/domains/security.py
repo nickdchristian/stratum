@@ -15,6 +15,7 @@ class S3SecurityScanType(StrEnum):
     ENCRYPTION = auto()
     PUBLIC_ACCESS = auto()
     ACLS = auto()
+    VERSIONING = auto()
 
 
 @dataclass
@@ -28,6 +29,8 @@ class S3SecurityResult(AuditResult):
     encryption: str = "None"
     acl_status: str = "Unknown"
     is_log_target: bool = False
+    versioning: str = "Suspended"
+    mfa_delete: str = "Disabled"
     check_type: str = S3SecurityScanType.ALL
 
     def __post_init__(self):
@@ -59,6 +62,14 @@ class S3SecurityResult(AuditResult):
                     self.risk_score += RiskWeight.HIGH
                     self.risk_reasons.append("Legacy ACLs Enabled")
 
+        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.VERSIONING]:
+            if self.versioning != "Enabled":
+                self.risk_score += RiskWeight.MEDIUM
+                self.risk_reasons.append("Versioning Disabled")
+            elif self.mfa_delete != "Enabled":
+                self.risk_score += RiskWeight.LOW
+                self.risk_reasons.append("MFA Delete Disabled")
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         if self.creation_date:
@@ -78,6 +89,9 @@ class S3SecurityResult(AuditResult):
 
         if check_type == S3SecurityScanType.ACLS:
             return base_columns + ["ACL Status", "Log Target"] + risk_columns
+
+        if check_type == S3SecurityScanType.VERSIONING:
+            return base_columns + ["Versioning", "MFA Delete"] + risk_columns
 
         return base_columns + risk_columns
 
@@ -135,6 +149,26 @@ class S3SecurityResult(AuditResult):
                 risk_reasons_render,
             ]
 
+        if self.check_type == S3SecurityScanType.VERSIONING:
+            version_render = (
+                f"[green]{self.versioning}[/green]"
+                if self.versioning == "Enabled"
+                else f"[red]{self.versioning}[/red]"
+            )
+            mfa_render = (
+                f"[green]{self.mfa_delete}[/green]"
+                if self.mfa_delete == "Enabled"
+                else f"[yellow]{self.mfa_delete}[/yellow]"
+            )
+            return [
+                resource_name,
+                region,
+                version_render,
+                mfa_render,
+                risk_level_render,
+                risk_reasons_render,
+            ]
+
         return base_row
 
     def get_csv_row(self) -> list[str]:
@@ -155,6 +189,8 @@ class S3SecurityResult(AuditResult):
             encryption_render,
             acl_render,
             log_target_render,
+            self.versioning,
+            self.mfa_delete,
             self.risk_level,
             risk_reasons_str,
         ]
@@ -186,6 +222,8 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         if acl_status == "Enabled":
             is_log_target = self.client.is_log_target(bucket_name)
 
+        version_config = self.client.get_versioning_status(bucket_name)
+
         return S3SecurityResult(
             resource_arn=bucket_arn,
             resource_name=bucket_name,
@@ -195,5 +233,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             encryption=encryption,
             acl_status=acl_status,
             is_log_target=is_log_target,
+            versioning=version_config["Status"],
+            mfa_delete=version_config["MFADelete"],
             check_type=self.check_type,
         )

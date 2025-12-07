@@ -108,3 +108,24 @@ def acl_scan(
         csv_output,
         failures_only,
     )
+
+
+@app.command("versioning")
+def versioning_scan(
+    verbose: bool = False,
+    fail_on_risk: bool = typer.Option(False, "--fail-on-risk"),
+    json_output: bool = typer.Option(False, "--json"),
+    csv_output: bool = typer.Option(False, "--csv"),
+    failures_only: bool = typer.Option(False, "--failures-only"),
+):
+    """Scan for Versioning and MFA Delete configuration."""
+    run_scan(
+        S3SecurityScanner,
+        S3SecurityResult,
+        S3SecurityScanType.VERSIONING,
+        verbose,
+        fail_on_risk,
+        json_output,
+        csv_output,
+        failures_only,
+    )

@@ -117,3 +117,17 @@ class S3Client:
             return False
         except ClientError:
             return False
+
+    def get_versioning_status(self, bucket_name: str) -> dict:
+        """
+        Returns a dict
+        with 'Status' (Enabled/Suspended) and 'MFADelete' (Enabled/Disabled).
+        """
+        try:
+            response = self._client.get_bucket_versioning(Bucket=bucket_name)
+            return {
+                "Status": response.get("Status", "Suspended"),
+                "MFADelete": response.get("MFADelete", "Disabled"),
+            }
+        except ClientError:
+            return {"Status": "Suspended", "MFADelete": "Disabled"}

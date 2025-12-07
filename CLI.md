@@ -56,6 +56,7 @@ $ sto s3 security [OPTIONS] COMMAND [ARGS]...
 * `encryption`: Scan ONLY for default encryption...
 * `public-access`: Scan ONLY for public access blocks.
 * `acls`: Scan ONLY for Legacy ACL usage and Log...
+* `versioning`: Scan for Versioning and MFA Delete...
 
 #### `sto s3 security all`
 
@@ -122,6 +123,25 @@ Scan ONLY for Legacy ACL usage and Log Delivery compliance.
 
 ```console
 $ sto s3 security acls [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--fail-on-risk`
+* `--json`
+* `--csv`
+* `--failures-only`
+* `--help`: Show this message and exit.
+
+#### `sto s3 security versioning`
+
+Scan for Versioning and MFA Delete configuration.
+
+**Usage**:
+
+```console
+$ sto s3 security versioning [OPTIONS]
 ```
 
 **Options**:

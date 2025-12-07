@@ -89,3 +89,50 @@ def test_s3_acl_check_type_filtering(base_s3_result):
     assert base_s3_result.risk_score == RiskWeight.HIGH
     assert "Legacy ACLs Enabled" in base_s3_result.risk_reasons
     assert "Encryption Missing" not in base_s3_result.risk_reasons
+
+
+def test_s3_versioning_risk_medium(base_s3_result):
+    """Verify Versioning Disabled is a MEDIUM risk."""
+    base_s3_result.check_type = S3SecurityScanType.VERSIONING
+    base_s3_result.versioning = "Suspended"
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.MEDIUM
+    assert "Versioning Disabled" in base_s3_result.risk_reasons
+
+
+def test_s3_mfa_delete_risk_low(base_s3_result):
+    """Verify MFA Delete Disabled is a LOW risk."""
+    base_s3_result.check_type = S3SecurityScanType.VERSIONING
+    base_s3_result.versioning = "Enabled"
+    base_s3_result.mfa_delete = "Disabled"
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.LOW
+    assert "MFA Delete Disabled" in base_s3_result.risk_reasons
+
+
+def test_s3_versioning_safe(base_s3_result):
+    """Verify SAFE state when both Versioning and MFA are enabled."""
+    base_s3_result.check_type = S3SecurityScanType.VERSIONING
+    base_s3_result.versioning = "Enabled"
+    base_s3_result.mfa_delete = "Enabled"
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.NONE
+    assert len(base_s3_result.risk_reasons) == 0
+
+
+def test_s3_versioning_check_type_filtering(base_s3_result):
+    """Verify Versioning risks are ignored if the scan type is ENCRYPTION."""
+    base_s3_result.versioning = "Suspended"
+
+    # Scan ONLY for Encryption
+    base_s3_result.check_type = S3SecurityScanType.ENCRYPTION
+    base_s3_result.encryption = "AES256"
+
+    base_s3_result._evaluate_risk()
+
+    # Should be 0 because we didn't ask for a Versioning check
+    assert base_s3_result.risk_score == RiskWeight.NONE
+    assert "Versioning Disabled" not in base_s3_result.risk_reasons

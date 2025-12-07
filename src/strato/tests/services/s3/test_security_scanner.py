@@ -13,11 +13,19 @@ def test_scanner_analyze_resource(mock_client_cls):
     mock_client.get_bucket_region.return_value = "eu-west-1"
     mock_client.get_public_access_status.return_value = False  # Risk
     mock_client.get_encryption_status.return_value = "None"  # Risk
+    mock_client.get_public_access_status.return_value = False  # Risk
+    mock_client.get_encryption_status.return_value = "None"  # Risk
+    mock_client.get_acl_status.return_value = "Disabled"  # Safe
 
     raw_bucket_data = {
         "Name": "risk-bucket",
         "BucketArn": "arn:aws:s3:::risk-bucket",
         "CreationDate": datetime(2023, 5, 5),
+    }
+
+    mock_client.get_versioning_status.return_value = {
+        "Status": "Enabled",
+        "MFADelete": "Enabled",
     }
 
     scanner = S3SecurityScanner()
