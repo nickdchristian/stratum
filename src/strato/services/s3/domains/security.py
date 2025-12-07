@@ -19,9 +19,9 @@ class S3SecurityScanType(StrEnum):
 
 @dataclass
 class S3SecurityResult(AuditResult):
-    """
-    Data model for S3 Security findings.
-    """
+    resource_arn: str
+    resource_name: str
+    region: str
 
     creation_date: datetime = None
     public_access_blocked: bool = False
@@ -31,17 +31,9 @@ class S3SecurityResult(AuditResult):
     check_type: str = S3SecurityScanType.ALL
 
     def __post_init__(self):
-        """Automatically calculate risk after initialization."""
         self._evaluate_risk()
 
     def _evaluate_risk(self):
-        """
-        Calculates the risk score based on configured rules.
-
-        Logic:
-        - Public Access: Critical risk (exposed to internet).
-        - No Encryption: Medium risk (compliance violation, but requires read access).
-        """
         self.risk_score = 0
         self.risk_reasons = []
 
@@ -68,7 +60,6 @@ class S3SecurityResult(AuditResult):
                     self.risk_reasons.append("Legacy ACLs Enabled")
 
     def to_dict(self) -> dict[str, Any]:
-        """Override to handle datetime serialization."""
         data = asdict(self)
         if self.creation_date:
             data["creation_date"] = self.creation_date.isoformat()
@@ -76,7 +67,6 @@ class S3SecurityResult(AuditResult):
 
     @classmethod
     def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        """Dynamic headers based on the specific scan type requested."""
         base_columns = ["Bucket Name", "Region"]
         risk_columns = ["Risk Level", "Reasons"]
 
@@ -89,139 +79,88 @@ class S3SecurityResult(AuditResult):
         if check_type == S3SecurityScanType.ACLS:
             return base_columns + ["ACL Status", "Log Target"] + risk_columns
 
-        return (
-            base_columns
-            + [
-                "Creation Date",
-                "Public Blocked",
-                "Encryption",
-                "ACL Status",
-                "Log Target",
-            ]
-            + risk_columns
-        )
+        return base_columns + risk_columns
 
     def get_table_row(self) -> list[str]:
-        """Formatted row with color-coding for S3 specific attributes."""
         base_row = super().get_table_row()
+
+        resource_name = base_row[0]
+        region = base_row[1]
         risk_level_render = base_row[2]
         risk_reasons_render = base_row[3]
 
-        public_access_render = (
-            "[green]Blocked[/green]"
-            if self.public_access_blocked
-            else "[red]OPEN[/red]"
-        )
-        date_render = (
-            self.creation_date.strftime("%Y-%m-%d") if self.creation_date else "Unknown"
-        )
-
-        if self.encryption == "None":
-            encryption_render = "[yellow]Missing[/yellow]"
-        else:
-            encryption_render = f"[green]{self.encryption}[/green]"
-
-        if self.acl_status == "Disabled":
-            acl_render = "[green]Disabled[/green]"
-        elif self.is_log_target:
-            acl_render = "[yellow]Enabled (Logs)[/yellow]"
-        else:
-            acl_render = "[red]Enabled[/red]"
-
-        log_target_render = "Yes" if self.is_log_target else "No"
-
-        return self._build_row(
-            date_render,
-            public_access_render,
-            encryption_render,
-            acl_render,
-            log_target_render,
-            risk_level_render,
-            risk_reasons_render,
-        )
-
-    def get_csv_row(self) -> list[str]:
-        """Raw CSV row for S3 attributes."""
-        base_row = super().get_csv_row()
-        risk_level_render = base_row[2]
-        risk_reasons_render = base_row[3]
-
-        date_render = (
-            self.creation_date.isoformat() if self.creation_date else "Unknown"
-        )
-        public_access_render = "Blocked" if self.public_access_blocked else "OPEN"
-        encryption_render = self.encryption
-        acl_render = self.acl_status
-        log_target_render = str(self.is_log_target)
-
-        return self._build_row(
-            date_render,
-            public_access_render,
-            encryption_render,
-            acl_render,
-            log_target_render,
-            risk_level_render,
-            risk_reasons_render,
-        )
-
-    def _build_row(
-        self,
-        date_render,
-        public_access_render,
-        encryption_render,
-        acl_render,
-        log_target_render,
-        risk_level_render,
-        risk_reasons_render,
-    ) -> list[str]:
-        """Helper to assemble row columns based on scan type."""
         if self.check_type == S3SecurityScanType.ENCRYPTION:
+            enc_render = (
+                f"[green]{self.encryption}[/green]"
+                if self.encryption != "None"
+                else "[yellow]Missing[/yellow]"
+            )
             return [
-                self.resource_name,
-                self.region,
-                encryption_render,
+                resource_name,
+                region,
+                enc_render,
                 risk_level_render,
                 risk_reasons_render,
             ]
 
         if self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
+            pub_render = (
+                "[green]Blocked[/green]"
+                if self.public_access_blocked
+                else "[red]OPEN[/red]"
+            )
             return [
-                self.resource_name,
-                self.region,
-                public_access_render,
+                resource_name,
+                region,
+                pub_render,
                 risk_level_render,
                 risk_reasons_render,
             ]
 
-        if self.check_type == S3SecurityScanType.ACLS or self.check_type == "acls":
+        if self.check_type == S3SecurityScanType.ACLS:
+            if self.acl_status == "Disabled":
+                acl_render = "[green]Disabled[/green]"
+            elif self.is_log_target:
+                acl_render = "[yellow]Enabled (Logs)[/yellow]"
+            else:
+                acl_render = "[red]Enabled[/red]"
+            log_target_render = "Yes" if self.is_log_target else "No"
+
             return [
-                self.resource_name,
-                self.region,
+                resource_name,
+                region,
                 acl_render,
                 log_target_render,
                 risk_level_render,
                 risk_reasons_render,
             ]
 
+        return base_row
+
+    def get_csv_row(self) -> list[str]:
+        date_render = (
+            self.creation_date.isoformat() if self.creation_date else "Unknown"
+        )
+        public_render = "Blocked" if self.public_access_blocked else "OPEN"
+        encryption_render = self.encryption
+        acl_render = self.acl_status
+        log_target_render = str(self.is_log_target)
+        risk_reasons_str = "; ".join(self.risk_reasons)
+
         return [
             self.resource_name,
             self.region,
             date_render,
-            public_access_render,
+            public_render,
             encryption_render,
             acl_render,
             log_target_render,
-            risk_level_render,
-            risk_reasons_render,
+            self.risk_level,
+            risk_reasons_str,
         ]
 
 
 class S3SecurityScanner(BaseScanner[S3SecurityResult]):
-    """
-    Implementation of BaseScanner for S3.
-    Aggregates data from multiple API calls to build a complete picture of a bucket.
-    """
-
     def __init__(self, check_type: str = S3SecurityScanType.ALL):
         super().__init__(check_type)
         self.client = S3Client()
@@ -231,17 +170,11 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         return f"S3 Security ({self.check_type})"
 
     def fetch_resources(self) -> Iterable[dict]:
-        """Yields simple bucket dictionaries to the thread pool."""
         yield from self.client.list_buckets()
 
     def analyze_resource(self, bucket_data: dict) -> S3SecurityResult:
-        """
-        Enriches a bucket dictionary with detailed security configurations.
-        Performs additional API calls (Region, Public Access, Encryption).
-        """
-        bucket_arn = bucket_data["BucketArn"]
+        bucket_arn = bucket_data.get("BucketArn", f"arn:aws:s3:::{bucket_data['Name']}")
         bucket_name = bucket_data["Name"]
-
         region = self.client.get_bucket_region(bucket_name)
         creation_date = bucket_data["CreationDate"]
 
@@ -253,8 +186,6 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         if acl_status == "Enabled":
             is_log_target = self.client.is_log_target(bucket_name)
 
-        check_type = self.check_type
-
         return S3SecurityResult(
             resource_arn=bucket_arn,
             resource_name=bucket_name,
@@ -264,5 +195,5 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             encryption=encryption,
             acl_status=acl_status,
             is_log_target=is_log_target,
-            check_type=check_type,
+            check_type=self.check_type,
         )
