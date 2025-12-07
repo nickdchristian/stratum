@@ -16,6 +16,7 @@ def test_scanner_analyze_resource(mock_client_cls):
     mock_client.get_public_access_status.return_value = False  # Risk
     mock_client.get_encryption_status.return_value = "None"  # Risk
     mock_client.get_acl_status.return_value = "Disabled"  # Safe
+    mock_client.get_object_lock_status.return_value = "Enabled"
 
     raw_bucket_data = {
         "Name": "risk-bucket",

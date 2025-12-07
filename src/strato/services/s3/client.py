@@ -131,3 +131,19 @@ class S3Client:
             }
         except ClientError:
             return {"Status": "Suspended", "MFADelete": "Disabled"}
+
+    def get_object_lock_status(self, bucket_name: str) -> str:
+        """
+        Returns 'Enabled' or 'Disabled'.
+        AWS throws ObjectLockConfigurationNotFoundError if disabled.
+        """
+        try:
+            response = self._client.get_object_lock_configuration(Bucket=bucket_name)
+            return response.get("ObjectLockConfiguration", {}).get(
+                "ObjectLockEnabled", "Disabled"
+            )
+        except ClientError as e:
+            # If config is not found, it implies it is disabled
+            if e.response["Error"]["Code"] == "ObjectLockConfigurationNotFoundError":
+                return "Disabled"
+            return "Unknown"

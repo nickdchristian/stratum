@@ -136,3 +136,57 @@ def test_s3_versioning_check_type_filtering(base_s3_result):
     # Should be 0 because we didn't ask for a Versioning check
     assert base_s3_result.risk_score == RiskWeight.NONE
     assert "Versioning Disabled" not in base_s3_result.risk_reasons
+
+
+def test_s3_object_lock_risk_low(base_s3_result):
+    """Verify Object Lock Disabled is a LOW risk."""
+    base_s3_result.check_type = S3SecurityScanType.OBJECT_LOCK
+    base_s3_result.object_lock = "Disabled"
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.LOW
+    assert "Object Lock Disabled" in base_s3_result.risk_reasons
+
+
+def test_s3_object_lock_safe(base_s3_result):
+    """Verify SAFE state when Object Lock is enabled."""
+    base_s3_result.check_type = S3SecurityScanType.OBJECT_LOCK
+    base_s3_result.object_lock = "Enabled"
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.NONE
+    assert "Object Lock Disabled" not in base_s3_result.risk_reasons
+
+
+def test_s3_object_lock_check_type_filtering(base_s3_result):
+    """Verify Object Lock risks are ignored if the scan type is ENCRYPTION."""
+    base_s3_result.object_lock = "Disabled"
+
+    # Scan ONLY for Encryption
+    base_s3_result.check_type = S3SecurityScanType.ENCRYPTION
+    # Set encryption to safe so we expect 0 risk
+    base_s3_result.encryption = "AES256"
+
+    base_s3_result._evaluate_risk()
+
+    # Should be 0 because we didn't ask for an Object Lock check
+    assert base_s3_result.risk_score == RiskWeight.NONE
+    assert "Object Lock Disabled" not in base_s3_result.risk_reasons
+
+
+def test_s3_object_lock_included_in_all(base_s3_result):
+    """Verify Object Lock is checked during an ALL scan."""
+    base_s3_result.check_type = S3SecurityScanType.ALL
+    base_s3_result.object_lock = "Disabled"
+
+    # Set other fields to safe to isolate Object Lock risk
+    base_s3_result.public_access_blocked = True
+    base_s3_result.encryption = "AES256"
+    base_s3_result.acl_status = "Disabled"
+    base_s3_result.versioning = "Enabled"
+    base_s3_result.mfa_delete = "Enabled"
+
+    base_s3_result._evaluate_risk()
+
+    assert base_s3_result.risk_score == RiskWeight.LOW
+    assert "Object Lock Disabled" in base_s3_result.risk_reasons

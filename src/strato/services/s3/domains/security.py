@@ -16,6 +16,7 @@ class S3SecurityScanType(StrEnum):
     PUBLIC_ACCESS = auto()
     ACLS = auto()
     VERSIONING = auto()
+    OBJECT_LOCK = auto()
 
 
 @dataclass
@@ -31,6 +32,7 @@ class S3SecurityResult(AuditResult):
     is_log_target: bool = False
     versioning: str = "Suspended"
     mfa_delete: str = "Disabled"
+    object_lock: str = "Disabled"
     check_type: str = S3SecurityScanType.ALL
 
     def __post_init__(self):
@@ -70,6 +72,12 @@ class S3SecurityResult(AuditResult):
                 self.risk_score += RiskWeight.LOW
                 self.risk_reasons.append("MFA Delete Disabled")
 
+        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.OBJECT_LOCK]:
+            if self.object_lock != "Enabled":
+                # Object Lock is usually optional, so we weight it LOW
+                self.risk_score += RiskWeight.LOW
+                self.risk_reasons.append("Object Lock Disabled")
+
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         if self.creation_date:
@@ -92,6 +100,9 @@ class S3SecurityResult(AuditResult):
 
         if check_type == S3SecurityScanType.VERSIONING:
             return base_columns + ["Versioning", "MFA Delete"] + risk_columns
+
+        if check_type == S3SecurityScanType.OBJECT_LOCK:
+            return ["Bucket Name", "Region", "Object Lock", "Risk Level", "Reasons"]
 
         return base_columns + risk_columns
 
@@ -169,6 +180,20 @@ class S3SecurityResult(AuditResult):
                 risk_reasons_render,
             ]
 
+        if self.check_type == S3SecurityScanType.OBJECT_LOCK:
+            lock_render = (
+                f"[green]{self.object_lock}[/green]"
+                if self.object_lock == "Enabled"
+                else f"[yellow]{self.object_lock}[/yellow]"
+            )
+            return [
+                self.resource_name,
+                self.region,
+                lock_render,
+                risk_level_render,
+                risk_reasons_render,
+            ]
+
         return base_row
 
     def get_csv_row(self) -> list[str]:
@@ -223,6 +248,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             is_log_target = self.client.is_log_target(bucket_name)
 
         version_config = self.client.get_versioning_status(bucket_name)
+        object_lock = self.client.get_object_lock_status(bucket_name)
 
         return S3SecurityResult(
             resource_arn=bucket_arn,
@@ -235,5 +261,6 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             is_log_target=is_log_target,
             versioning=version_config["Status"],
             mfa_delete=version_config["MFADelete"],
+            object_lock=object_lock,
             check_type=self.check_type,
         )

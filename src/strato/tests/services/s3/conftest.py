@@ -22,5 +22,6 @@ def base_s3_result():
         is_log_target="False",
         versioning="Enabled",
         mfa_delete="Enabled",
+        object_lock="Enabled",
         check_type=S3SecurityScanType.ALL,
     )
