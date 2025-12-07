@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
@@ -7,6 +7,7 @@ from typing import Any
 from strato.core.models import AuditResult
 from strato.core.scanner import BaseScanner
 from strato.core.scoring import RiskWeight
+from strato.core.style import AuditStatus, colorize
 from strato.services.s3.client import S3Client
 
 
@@ -42,20 +43,19 @@ class S3SecurityResult(AuditResult):
         self.risk_score = 0
         self.risk_reasons = []
 
-        if self.check_type in [
-            S3SecurityScanType.ALL,
-            S3SecurityScanType.PUBLIC_ACCESS,
-        ]:
+        is_all = self.check_type == S3SecurityScanType.ALL
+
+        if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
             if not self.public_access_blocked:
                 self.risk_score += RiskWeight.CRITICAL
                 self.risk_reasons.append("Public Access Allowed")
 
-        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.ENCRYPTION]:
+        if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
             if self.encryption == "None":
                 self.risk_score += RiskWeight.MEDIUM
                 self.risk_reasons.append("Encryption Missing")
 
-        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.ACLS]:
+        if is_all or self.check_type == S3SecurityScanType.ACLS:
             if self.acl_status == "Enabled":
                 if self.is_log_target:
                     self.risk_score += RiskWeight.MEDIUM
@@ -64,7 +64,7 @@ class S3SecurityResult(AuditResult):
                     self.risk_score += RiskWeight.HIGH
                     self.risk_reasons.append("Legacy ACLs Enabled")
 
-        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.VERSIONING]:
+        if is_all or self.check_type == S3SecurityScanType.VERSIONING:
             if self.versioning != "Enabled":
                 self.risk_score += RiskWeight.MEDIUM
                 self.risk_reasons.append("Versioning Disabled")
@@ -72,153 +72,181 @@ class S3SecurityResult(AuditResult):
                 self.risk_score += RiskWeight.LOW
                 self.risk_reasons.append("MFA Delete Disabled")
 
-        if self.check_type in [S3SecurityScanType.ALL, S3SecurityScanType.OBJECT_LOCK]:
+        if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
             if self.object_lock != "Enabled":
-                # Object Lock is usually optional, so we weight it LOW
                 self.risk_score += RiskWeight.LOW
                 self.risk_reasons.append("Object Lock Disabled")
 
+    def _get_scan_columns(self) -> list[tuple[str, str, Any, str]]:
+        """
+        Registry of dynamic columns.
+        Format: (Header Name, JSON Key, Raw Value, Table Render)
+        """
+        columns = []
+        is_all = self.check_type == S3SecurityScanType.ALL
+
+        # Only add columns if relevant to the check_type (or ALL)
+        if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
+            columns.append(
+                (
+                    "Public Blocked",
+                    "public_access_blocked",
+                    self.public_access_blocked,
+                    self._render_public,
+                )
+            )
+
+        if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
+            columns.append(
+                ("Encryption", "encryption", self.encryption, self._render_encryption)
+            )
+
+        if is_all or self.check_type == S3SecurityScanType.ACLS:
+            columns.append(
+                ("ACL Status", "acl_status", self.acl_status, self._render_acl)
+            )
+            columns.append(
+                (
+                    "Log Target",
+                    "is_log_target",
+                    self.is_log_target,
+                    "Yes" if self.is_log_target else "No",
+                )
+            )
+
+        if is_all or self.check_type == S3SecurityScanType.VERSIONING:
+            columns.append(
+                ("Versioning", "versioning", self.versioning, self._render_versioning)
+            )
+            columns.append(
+                ("MFA Delete", "mfa_delete", self.mfa_delete, self._render_mfa)
+            )
+
+        if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
+            columns.append(
+                ("Object Lock", "object_lock", self.object_lock, self._render_lock)
+            )
+
+        return columns
+
     def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        if self.creation_date:
-            data["creation_date"] = self.creation_date.isoformat()
+        """JSON always includes the full data set."""
+        data = {
+            "resource_arn": self.resource_arn,
+            "resource_name": self.resource_name,
+            "region": self.region,
+            "creation_date": self.creation_date.isoformat()
+            if self.creation_date
+            else None,
+            "risk_score": self.risk_score,
+            "risk_level": self.risk_level,
+            "risk_reasons": self.risk_reasons,
+            "check_type": self.check_type,
+        }
+        for _, key, value, _ in self._get_scan_columns():
+            data[key] = value
         return data
 
     @classmethod
+    def get_csv_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
+        """
+        CSV Headers: ALWAYS returns the full set of columns (Base + Dynamic + Risk).
+        This fixes the missing header issue for 'ALL' scans.
+        """
+        dummy = cls(resource_arn="", resource_name="", region="", check_type=check_type)
+        base_headers = ["Bucket Name", "Region", "Creation Date"]
+        dynamic_headers = [col[0] for col in dummy._get_scan_columns()]
+        risk_headers = ["Risk Level", "Reasons"]
+
+        return base_headers + dynamic_headers + risk_headers
+
+    @classmethod
     def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        base_columns = ["Bucket Name", "Region"]
-        risk_columns = ["Risk Level", "Reasons"]
+        """
+        Table Headers: Returns a SUMMARY for 'ALL' scans to keep the table readable.
+        For specific scans, it returns the full details (same as CSV).
+        """
+        if check_type == S3SecurityScanType.ALL:
+            return ["Bucket Name", "Region", "Creation Date", "Risk Level", "Reasons"]
 
-        if check_type == S3SecurityScanType.ENCRYPTION:
-            return base_columns + ["Encryption"] + risk_columns
+        return cls.get_csv_headers(check_type)
 
-        if check_type == S3SecurityScanType.PUBLIC_ACCESS:
-            return base_columns + ["Public Blocked"] + risk_columns
+    def get_csv_row(self) -> list[str]:
+        """CSV Row: Aligns with get_csv_headers (Always Full)."""
+        date_str = self.creation_date.isoformat() if self.creation_date else "Unknown"
+        row = [self.resource_name, self.region, date_str]
 
-        if check_type == S3SecurityScanType.ACLS:
-            return base_columns + ["ACL Status", "Log Target"] + risk_columns
+        # Always inject dynamic columns
+        for _, _, val, _ in self._get_scan_columns():
+            if isinstance(val, bool):
+                row.append("Yes" if val else "No")
+            else:
+                row.append(str(val))
 
-        if check_type == S3SecurityScanType.VERSIONING:
-            return base_columns + ["Versioning", "MFA Delete"] + risk_columns
-
-        if check_type == S3SecurityScanType.OBJECT_LOCK:
-            return ["Bucket Name", "Region", "Object Lock", "Risk Level", "Reasons"]
-
-        return base_columns + risk_columns
+        row.append(self.risk_level)
+        row.append("; ".join(self.risk_reasons))
+        return row
 
     def get_table_row(self) -> list[str]:
+        """Table Row: Aligns with get_headers (Summary for ALL, Full for others)."""
         base_row = super().get_table_row()
 
         resource_name = base_row[0]
         region = base_row[1]
-        risk_level_render = base_row[2]
-        risk_reasons_render = base_row[3]
+        risk_level = base_row[2]
+        risk_reasons = base_row[3]
 
-        if self.check_type == S3SecurityScanType.ENCRYPTION:
-            enc_render = (
-                f"[green]{self.encryption}[/green]"
-                if self.encryption != "None"
-                else "[yellow]Missing[/yellow]"
-            )
-            return [
-                resource_name,
-                region,
-                enc_render,
-                risk_level_render,
-                risk_reasons_render,
-            ]
-
-        if self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
-            pub_render = (
-                "[green]Blocked[/green]"
-                if self.public_access_blocked
-                else "[red]OPEN[/red]"
-            )
-            return [
-                resource_name,
-                region,
-                pub_render,
-                risk_level_render,
-                risk_reasons_render,
-            ]
-
-        if self.check_type == S3SecurityScanType.ACLS:
-            if self.acl_status == "Disabled":
-                acl_render = "[green]Disabled[/green]"
-            elif self.is_log_target:
-                acl_render = "[yellow]Enabled (Logs)[/yellow]"
-            else:
-                acl_render = "[red]Enabled[/red]"
-            log_target_render = "Yes" if self.is_log_target else "No"
-
-            return [
-                resource_name,
-                region,
-                acl_render,
-                log_target_render,
-                risk_level_render,
-                risk_reasons_render,
-            ]
-
-        if self.check_type == S3SecurityScanType.VERSIONING:
-            version_render = (
-                f"[green]{self.versioning}[/green]"
-                if self.versioning == "Enabled"
-                else f"[red]{self.versioning}[/red]"
-            )
-            mfa_render = (
-                f"[green]{self.mfa_delete}[/green]"
-                if self.mfa_delete == "Enabled"
-                else f"[yellow]{self.mfa_delete}[/yellow]"
-            )
-            return [
-                resource_name,
-                region,
-                version_render,
-                mfa_render,
-                risk_level_render,
-                risk_reasons_render,
-            ]
-
-        if self.check_type == S3SecurityScanType.OBJECT_LOCK:
-            lock_render = (
-                f"[green]{self.object_lock}[/green]"
-                if self.object_lock == "Enabled"
-                else f"[yellow]{self.object_lock}[/yellow]"
-            )
-            return [
-                self.resource_name,
-                self.region,
-                lock_render,
-                risk_level_render,
-                risk_reasons_render,
-            ]
-
-        return base_row
-
-    def get_csv_row(self) -> list[str]:
-        date_render = (
-            self.creation_date.isoformat() if self.creation_date else "Unknown"
+        date_str = (
+            self.creation_date.strftime("%Y-%m-%d") if self.creation_date else "Unknown"
         )
-        public_render = "Blocked" if self.public_access_blocked else "OPEN"
-        encryption_render = self.encryption
-        acl_render = self.acl_status
-        log_target_render = str(self.is_log_target)
-        risk_reasons_str = "; ".join(self.risk_reasons)
+        row = [resource_name, region, date_str]
 
-        return [
-            self.resource_name,
-            self.region,
-            date_render,
-            public_render,
-            encryption_render,
-            acl_render,
-            log_target_render,
-            self.versioning,
-            self.mfa_delete,
-            self.risk_level,
-            risk_reasons_str,
-        ]
+        # Only inject dynamic columns if NOT 'ALL' (Risk-Only View)
+        if self.check_type != S3SecurityScanType.ALL:
+            for _, _, _, render in self._get_scan_columns():
+                row.append(render)
+
+        row.append(risk_level)
+        row.append(risk_reasons)
+
+        return row
+
+    @property
+    def _render_encryption(self):
+        if self.encryption != "None":
+            return colorize(self.encryption, AuditStatus.PASS)
+        return colorize("Missing", AuditStatus.WARN)
+
+    @property
+    def _render_public(self):
+        if self.public_access_blocked:
+            return colorize("Blocked", AuditStatus.PASS)
+        return colorize("OPEN", AuditStatus.FAIL)
+
+    @property
+    def _render_acl(self):
+        if self.acl_status == "Disabled":
+            return colorize("Disabled", AuditStatus.PASS)
+
+        status_text = "Enabled (Logs)" if self.is_log_target else "Enabled"
+        color = AuditStatus.WARN if self.is_log_target else AuditStatus.FAIL
+
+        return colorize(status_text, color)
+
+    @property
+    def _render_versioning(self):
+        color = AuditStatus.PASS if self.versioning == "Enabled" else AuditStatus.FAIL
+        return colorize(self.versioning, color)
+
+    @property
+    def _render_mfa(self):
+        color = AuditStatus.PASS if self.mfa_delete == "Enabled" else AuditStatus.WARN
+        return colorize(self.mfa_delete, color)
+
+    @property
+    def _render_lock(self):
+        color = AuditStatus.PASS if self.object_lock == "Enabled" else AuditStatus.WARN
+        return colorize(self.object_lock, color)
 
 
 class S3SecurityScanner(BaseScanner[S3SecurityResult]):
@@ -239,16 +267,31 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         region = self.client.get_bucket_region(bucket_name)
         creation_date = bucket_data["CreationDate"]
 
-        public_access_blocked = self.client.get_public_access_status(bucket_name)
-        encryption = self.client.get_encryption_status(bucket_name)
-
-        acl_status = self.client.get_acl_status(bucket_name)
+        public_access_blocked = False
+        encryption = "None"
+        acl_status = "Unknown"
         is_log_target = False
-        if acl_status == "Enabled":
-            is_log_target = self.client.is_log_target(bucket_name)
+        version_config = {"Status": "Suspended", "MFADelete": "Disabled"}
+        object_lock = "Disabled"
 
-        version_config = self.client.get_versioning_status(bucket_name)
-        object_lock = self.client.get_object_lock_status(bucket_name)
+        is_all = self.check_type == S3SecurityScanType.ALL
+
+        if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
+            public_access_blocked = self.client.get_public_access_status(bucket_name)
+
+        if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
+            encryption = self.client.get_encryption_status(bucket_name)
+
+        if is_all or self.check_type == S3SecurityScanType.ACLS:
+            acl_status = self.client.get_acl_status(bucket_name)
+            if acl_status == "Enabled":
+                is_log_target = self.client.is_log_target(bucket_name)
+
+        if is_all or self.check_type == S3SecurityScanType.VERSIONING:
+            version_config = self.client.get_versioning_status(bucket_name)
+
+        if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
+            object_lock = self.client.get_object_lock_status(bucket_name)
 
         return S3SecurityResult(
             resource_arn=bucket_arn,

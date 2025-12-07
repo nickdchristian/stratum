@@ -32,7 +32,13 @@ class AuditPresenter:
     def print_csv(self):
         """Writes CSV data to stdout."""
         writer = csv.writer(sys.stdout)
-        writer.writerow(self.result_type.get_headers(self.check_type))
+
+        if hasattr(self.result_type, "get_csv_headers"):
+            headers = self.result_type.get_csv_headers(self.check_type)
+        else:
+            headers = self.result_type.get_headers(self.check_type)
+
+        writer.writerow(headers)
 
         for result in self.results:
             writer.writerow(result.get_csv_row())
