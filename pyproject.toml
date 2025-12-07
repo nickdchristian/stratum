@@ -1,6 +1,6 @@
 [project]
 name = "strato"
-version = "0.0.13"
+version = "0.0.14"
 description = "Strato is an extensible, opinionated command-line interface (CLI) for auditing AWS infrastructure."
 readme = "README.md"
 requires-python = ">=3.14"
