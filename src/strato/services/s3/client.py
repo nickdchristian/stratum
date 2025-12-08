@@ -54,26 +54,30 @@ class S3Client:
             # If we can't read the config, assume it's not blocked (fail safe)
             return False
 
-    def get_encryption_status(self, bucket_name: str) -> str:
+    def get_encryption_status(self, bucket_name: str) -> dict:
         """
-        Checks for default server-side encryption.
+        Checks for default server-side encryption and SSE-C blocking status.
         """
+        result = {"SSEAlgorithm": "None", "SSECBlocked": False}
         try:
             response = self._client.get_bucket_encryption(Bucket=bucket_name)
             rules = response.get("ServerSideEncryptionConfiguration", {}).get(
                 "Rules", []
             )
             if not rules:
-                return "None"
+                return result
 
-            encryption_type = (
-                rules[0]
-                .get("ApplyServerSideEncryptionByDefault", {})
-                .get("SSEAlgorithm")
-            )
-            return encryption_type or "Unknown"
+            rule = rules[0]
+            encryption_config = rule.get("ApplyServerSideEncryptionByDefault", {})
+            result["SSEAlgorithm"] = encryption_config.get("SSEAlgorithm", "Unknown")
+
+            blocked_types = rule.get("BlockedEncryptionTypes", [])
+            if "SSE-C" in blocked_types:
+                result["SSECBlocked"] = True
+
+            return result
         except ClientError:
-            return "None"
+            return result
 
     def get_acl_status(self, bucket_name: str) -> str:
         """

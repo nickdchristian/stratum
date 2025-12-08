@@ -16,6 +16,7 @@ def safe_result():
         creation_date=datetime(2023, 1, 1),
         public_access_blocked=True,
         encryption="AES256",
+        sse_c_blocked=True,
         acl_status="Disabled",
         versioning="Enabled",
         mfa_delete="Enabled",
@@ -32,12 +33,12 @@ def risky_result():
         resource_name="risky-bucket",
         region="us-east-1",
         creation_date=datetime(2023, 1, 1),
-        public_access_blocked=False,  # Risk
-        encryption="None",  # Risk
-        acl_status="Enabled",  # Risk (High)
-        versioning="Suspended",  # Risk
-        mfa_delete="Disabled",  # Risk
-        object_lock="Disabled",  # Risk
+        public_access_blocked=False,
+        encryption="None",
+        acl_status="Enabled",
+        versioning="Suspended",
+        mfa_delete="Disabled",
+        object_lock="Disabled",
         check_type=S3SecurityScanType.ALL,
     )
 
@@ -61,10 +62,20 @@ def test_risk_scoring_critical(safe_result):
 def test_risk_scoring_medium(safe_result):
     """Verify Encryption Missing triggers MEDIUM risk."""
     safe_result.encryption = "None"
+    safe_result.sse_c_blocked = True
     safe_result._evaluate_risk()
 
     assert safe_result.risk_score == RiskWeight.MEDIUM
     assert "Encryption Missing" in safe_result.risk_reasons
+
+
+def test_risk_scoring_ssec_warning(safe_result):
+    """Verify SSE-C Allowed triggers LOW risk."""
+    safe_result.sse_c_blocked = False
+    safe_result._evaluate_risk()
+
+    assert safe_result.risk_score == RiskWeight.LOW
+    assert "SSE-C Not Blocked" in safe_result.risk_reasons
 
 
 def test_risk_scoring_filtering(safe_result):
@@ -74,13 +85,14 @@ def test_risk_scoring_filtering(safe_result):
 
     # But run a scan ONLY for Encryption
     safe_result.check_type = S3SecurityScanType.ENCRYPTION
+
+    safe_result.encryption = "AES256"
+    safe_result.sse_c_blocked = True
+
     safe_result._evaluate_risk()
 
     # Should be safe because we aren't checking public access
     assert safe_result.risk_score == RiskWeight.NONE
-
-
-# --- TESTS: STYLING & RENDERING (NEW) ---
 
 
 def test_render_style_integration(safe_result):
@@ -141,6 +153,7 @@ def test_all_scan_csv_is_full_detail(safe_result):
     assert len(headers) == len(row)
 
     assert "Encryption" in headers
+    assert "SSE-C Blocked" in headers
     assert "Object Lock" in headers
     assert "MFA Delete" in headers
 
