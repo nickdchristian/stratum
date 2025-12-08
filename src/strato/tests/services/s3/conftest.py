@@ -18,6 +18,7 @@ def base_s3_result():
         creation_date=datetime(2023, 1, 1),
         public_access_blocked=True,
         encryption="AES256",
+        sse_c_blocked=True,
         acl_status="disabled",
         is_log_target="False",
         versioning="Enabled",

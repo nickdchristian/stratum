@@ -29,6 +29,7 @@ class S3SecurityResult(AuditResult):
     creation_date: datetime = None
     public_access_blocked: bool = False
     encryption: str = "None"
+    sse_c_blocked: bool = False
     acl_status: str = "Unknown"
     is_log_target: bool = False
     versioning: str = "Suspended"
@@ -54,6 +55,10 @@ class S3SecurityResult(AuditResult):
             if self.encryption == "None":
                 self.risk_score += RiskWeight.MEDIUM
                 self.risk_reasons.append("Encryption Missing")
+
+        if not self.sse_c_blocked:
+            self.risk_score += RiskWeight.LOW
+            self.risk_reasons.append("SSE-C Not Blocked")
 
         if is_all or self.check_type == S3SecurityScanType.ACLS:
             if self.acl_status == "Enabled":
@@ -99,6 +104,14 @@ class S3SecurityResult(AuditResult):
         if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
             columns.append(
                 ("Encryption", "encryption", self.encryption, self._render_encryption)
+            )
+            columns.append(
+                (
+                    "SSE-C Blocked",
+                    "sse_c_blocked",
+                    self.sse_c_blocked,
+                    self._render_ssec,
+                )
             )
 
         if is_all or self.check_type == S3SecurityScanType.ACLS:
@@ -151,7 +164,6 @@ class S3SecurityResult(AuditResult):
     def get_csv_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
         """
         CSV Headers: ALWAYS returns the full set of columns (Base + Dynamic + Risk).
-        This fixes the missing header issue for 'ALL' scans.
         """
         dummy = cls(resource_arn="", resource_name="", region="", check_type=check_type)
         base_headers = ["Bucket Name", "Region", "Creation Date"]
@@ -218,6 +230,12 @@ class S3SecurityResult(AuditResult):
         return colorize("Missing", AuditStatus.WARN)
 
     @property
+    def _render_ssec(self):
+        if self.sse_c_blocked:
+            return colorize("Blocked", AuditStatus.PASS)
+        return colorize("Allowed", AuditStatus.WARN)
+
+    @property
     def _render_public(self):
         if self.public_access_blocked:
             return colorize("Blocked", AuditStatus.PASS)
@@ -269,6 +287,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
 
         public_access_blocked = False
         encryption = "None"
+        sse_c_blocked = False
         acl_status = "Unknown"
         is_log_target = False
         version_config = {"Status": "Suspended", "MFADelete": "Disabled"}
@@ -280,7 +299,9 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             public_access_blocked = self.client.get_public_access_status(bucket_name)
 
         if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
-            encryption = self.client.get_encryption_status(bucket_name)
+            enc_status = self.client.get_encryption_status(bucket_name)
+            encryption = enc_status["SSEAlgorithm"]
+            sse_c_blocked = enc_status["SSECBlocked"]
 
         if is_all or self.check_type == S3SecurityScanType.ACLS:
             acl_status = self.client.get_acl_status(bucket_name)
@@ -300,6 +321,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             creation_date=creation_date,
             public_access_blocked=public_access_blocked,
             encryption=encryption,
+            sse_c_blocked=sse_c_blocked,
             acl_status=acl_status,
             is_log_target=is_log_target,
             versioning=version_config["Status"],

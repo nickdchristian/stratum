@@ -10,13 +10,21 @@ from strato.services.s3.domains.security import (
 @patch("strato.services.s3.domains.security.S3Client")
 def test_scanner_analyze_resource(mock_client_cls):
     mock_client = mock_client_cls.return_value
+
     mock_client.get_bucket_region.return_value = "eu-west-1"
-    mock_client.get_public_access_status.return_value = False  # Risk
-    mock_client.get_encryption_status.return_value = "None"  # Risk
-    mock_client.get_public_access_status.return_value = False  # Risk
-    mock_client.get_encryption_status.return_value = "None"  # Risk
-    mock_client.get_acl_status.return_value = "Disabled"  # Safe
+    mock_client.get_public_access_status.return_value = False
+
+    mock_client.get_encryption_status.return_value = {
+        "SSEAlgorithm": "AES256",
+        "SSECBlocked": True,
+    }
+
+    mock_client.get_acl_status.return_value = "Disabled"
     mock_client.get_object_lock_status.return_value = "Enabled"
+    mock_client.get_versioning_status.return_value = {
+        "Status": "Enabled",
+        "MFADelete": "Enabled",
+    }
 
     raw_bucket_data = {
         "Name": "risk-bucket",
@@ -24,17 +32,14 @@ def test_scanner_analyze_resource(mock_client_cls):
         "CreationDate": datetime(2023, 5, 5),
     }
 
-    mock_client.get_versioning_status.return_value = {
-        "Status": "Enabled",
-        "MFADelete": "Enabled",
-    }
-
     scanner = S3SecurityScanner()
     result = scanner.analyze_resource(raw_bucket_data)
 
     assert isinstance(result, S3SecurityResult)
     assert result.resource_name == "risk-bucket"
-    assert result.region == "eu-west-1"
+    assert result.encryption == "AES256"
+    assert result.sse_c_blocked is True
 
     assert result.risk_level == "CRITICAL"
-    assert len(result.risk_reasons) == 2
+    assert len(result.risk_reasons) == 1
+    assert "Public Access Allowed" in result.risk_reasons
