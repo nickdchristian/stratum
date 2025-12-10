@@ -59,7 +59,7 @@ class AuditPresenter:
 
     def _print_summary(self):
         """Prints the final pass/fail summary below the table."""
-        risk_count = sum(1 for result in self.results if result.has_risk)
+        risk_count = sum(len(result.risk_reasons) for result in self.results)
         if risk_count > 0:
             console.print(f"\n[bold red]Found {risk_count} risks.[/bold red]")
         else:
