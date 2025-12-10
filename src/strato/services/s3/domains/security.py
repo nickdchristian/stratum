@@ -8,6 +8,7 @@ from strato.core.models import AuditResult
 from strato.core.scanner import BaseScanner
 from strato.core.scoring import RiskWeight
 from strato.core.style import AuditStatus, colorize
+from strato.services.s3 import utils
 from strato.services.s3.client import S3Client
 
 
@@ -19,6 +20,7 @@ class S3SecurityScanType(StrEnum):
     ACLS = auto()
     VERSIONING = auto()
     OBJECT_LOCK = auto()
+    NAME_PREDICTABILITY = auto()
 
 
 @dataclass
@@ -38,6 +40,7 @@ class S3SecurityResult(AuditResult):
     versioning: str = "Suspended"
     mfa_delete: str = "Disabled"
     object_lock: str = "Disabled"
+    name_predictability: str = "LOW"
     check_type: str = S3SecurityScanType.ALL
 
     def __post_init__(self):
@@ -97,6 +100,14 @@ class S3SecurityResult(AuditResult):
             if self.object_lock != "Enabled":
                 self.risk_score += RiskWeight.LOW
                 self.risk_reasons.append("Object Lock Disabled")
+
+        if is_all or self.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
+            if self.name_predictability == "HIGH":
+                self.risk_score += RiskWeight.LOW
+                self.risk_reasons.append("Highly Predictable Bucket Name")
+            if self.name_predictability == "MODERATE":
+                self.risk_score += RiskWeight.NONE
+                self.risk_reasons.append("Moderately Predictable Bucket Name")
 
     def _get_scan_columns(self) -> list[tuple[str, str, Any, str]]:
         """
@@ -172,6 +183,16 @@ class S3SecurityResult(AuditResult):
         if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
             columns.append(
                 ("Object Lock", "object_lock", self.object_lock, self._render_lock)
+            )
+
+        if is_all or self.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
+            columns.append(
+                (
+                    "Name Predictability",
+                    "name_predictability",
+                    self.name_predictability,
+                    self._render_name_predictability,
+                )
             )
 
         return columns
@@ -314,6 +335,12 @@ class S3SecurityResult(AuditResult):
         color = AuditStatus.PASS if self.object_lock == "Enabled" else AuditStatus.WARN
         return colorize(self.object_lock, color)
 
+    @property
+    def _render_name_predictability(self):
+        if self.name_predictability == "LOW":
+            return colorize(self.name_predictability, AuditStatus.PASS)
+        return colorize(self.name_predictability, AuditStatus.WARN)
+
 
 class S3SecurityScanner(BaseScanner[S3SecurityResult]):
     def __init__(self, check_type: str = S3SecurityScanType.ALL):
@@ -341,6 +368,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         is_log_target = False
         version_config = {"Status": "Suspended", "MFADelete": "Disabled"}
         object_lock = "Disabled"
+        name_predictability = "HIGH"
 
         is_all = self.check_type == S3SecurityScanType.ALL
 
@@ -366,6 +394,9 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
             object_lock = self.client.get_object_lock_status(bucket_name)
 
+        if is_all or self.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
+            name_predictability = utils.get_bucket_name_predictability(bucket_name)
+
         return S3SecurityResult(
             resource_arn=bucket_arn,
             resource_name=bucket_name,
@@ -381,5 +412,6 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             versioning=version_config["Status"],
             mfa_delete=version_config["MFADelete"],
             object_lock=object_lock,
+            name_predictability=name_predictability,
             check_type=self.check_type,
         )

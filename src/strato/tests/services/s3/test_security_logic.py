@@ -10,8 +10,8 @@ from strato.services.s3.domains.security import S3SecurityResult, S3SecurityScan
 def safe_result():
     """Returns a completely safe S3SecurityResult."""
     return S3SecurityResult(
-        resource_arn="arn:aws:s3:::safe-bucket",
-        resource_name="safe-bucket",
+        resource_arn="arn:aws:s3:::safe-bucket-3a9f1c4d",
+        resource_name="safe-bucket-3a9f1c4d",
         region="us-east-1",
         creation_date=datetime(2023, 1, 1),
         public_access_blocked=True,
@@ -31,8 +31,8 @@ def safe_result():
 def risky_result():
     """Returns a result with multiple risks."""
     return S3SecurityResult(
-        resource_arn="arn:aws:s3:::risky-bucket",
-        resource_name="risky-bucket",
+        resource_arn="arn:aws:s3:::risky-bucket-7b8e9f0a",
+        resource_name="risky-bucket-7b8e9f0a",
         region="us-east-1",
         creation_date=datetime(2023, 1, 1),
         public_access_blocked=False,
@@ -42,6 +42,21 @@ def risky_result():
         mfa_delete="Disabled",
         object_lock="Disabled",
         check_type=S3SecurityScanType.ALL,
+    )
+
+
+@pytest.fixture
+def policy_result():
+    """Returns a result initialized for Policy scanning."""
+    return S3SecurityResult(
+        resource_arn="arn:aws:s3:::policy-bucket-1a2b3c4d",
+        resource_name="policy-bucket-1a2b3c4d",
+        region="us-east-1",
+        creation_date=datetime(2023, 1, 1),
+        # Default safe state for policy
+        policy_access="Private",
+        ssl_enforced=True,
+        check_type=S3SecurityScanType.POLICY,
     )
 
 
@@ -215,21 +230,6 @@ def test_json_filtering(safe_result):
     assert "encryption" not in data
     assert "public_access_blocked" not in data
     assert "versioning" not in data
-
-
-@pytest.fixture
-def policy_result():
-    """Returns a result initialized for Policy scanning."""
-    return S3SecurityResult(
-        resource_arn="arn:aws:s3:::policy-bucket",
-        resource_name="policy-bucket",
-        region="us-east-1",
-        creation_date=datetime(2023, 1, 1),
-        # Default safe state for policy
-        policy_access="Private",
-        ssl_enforced=True,
-        check_type=S3SecurityScanType.POLICY,
-    )
 
 
 def test_policy_scoring_safe(policy_result):

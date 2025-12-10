@@ -59,6 +59,7 @@ $ sto s3 security [OPTIONS] COMMAND [ARGS]...
 * `acls`: Scan ONLY for Legacy ACL usage and Log...
 * `versioning`: Scan for Versioning and MFA Delete...
 * `object-lock`: Scan for Object Lock configuration.
+* `name_predictability`: Scan for Object Lock configuration.
 
 #### `sto s3 security all`
 
@@ -182,6 +183,25 @@ Scan for Object Lock configuration.
 
 ```console
 $ sto s3 security object-lock [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--fail-on-risk`
+* `--json`
+* `--csv`
+* `--failures-only`
+* `--help`: Show this message and exit.
+
+#### `sto s3 security name_predictability`
+
+Scan for Object Lock configuration.
+
+**Usage**:
+
+```console
+$ sto s3 security name_predictability [OPTIONS]
 ```
 
 **Options**:

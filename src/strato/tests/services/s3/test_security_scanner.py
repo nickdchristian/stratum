@@ -27,8 +27,8 @@ def test_scanner_analyze_resource(mock_client_cls):
     }
 
     raw_bucket_data = {
-        "Name": "risk-bucket",
-        "BucketArn": "arn:aws:s3:::risk-bucket",
+        "Name": "risk-bucket-a1b2c3d4",
+        "BucketArn": "arn:aws:s3:::risk-bucket-a1b2c3d4",
         "CreationDate": datetime(2023, 5, 5),
     }
 
@@ -36,7 +36,7 @@ def test_scanner_analyze_resource(mock_client_cls):
     result = scanner.analyze_resource(raw_bucket_data)
 
     assert isinstance(result, S3SecurityResult)
-    assert result.resource_name == "risk-bucket"
+    assert result.resource_name == "risk-bucket-a1b2c3d4"
     assert result.encryption == "AES256"
     assert result.sse_c_blocked is True
 
