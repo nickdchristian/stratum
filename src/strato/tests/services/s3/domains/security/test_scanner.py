@@ -35,6 +35,7 @@ def test_scanner_analyze_resource(mock_client_cls):
     mock_client.get_bucket_policy.return_value = {
         "Access": "Private",
         "SSL_Enforced": True,
+        "Log_Sources": [],
     }
 
     raw_bucket_data = {
@@ -83,6 +84,7 @@ def test_scanner_handles_access_denied(mock_client_cls):
     mock_client.get_bucket_policy.return_value = {
         "Access": "Unknown",
         "SSL_Enforced": False,
+        "Log_Sources": [],
     }
 
     scanner = S3SecurityScanner(account_id="999888777")
@@ -110,3 +112,43 @@ def test_scanner_session_injection(mock_client_cls):
 
     mock_client_cls.assert_called_with(session=mock_session)
     assert scanner.account_id == "55555"
+
+
+@patch("strato.services.s3.domains.security.S3Client")
+def test_scanner_detects_log_bucket(mock_client_cls):
+    """
+    Verifies that if the client detects log sources, they are passed to the result
+    and risk logic flags missing protections.
+    """
+    mock_client = mock_client_cls.return_value
+    mock_client.get_public_access_status.return_value = True
+    mock_client.get_encryption_status.return_value = {
+        "SSEAlgorithm": "AES256",
+        "SSECBlocked": True,
+    }
+    mock_client.get_acl_status.return_value = "Disabled"
+
+    # FIX: Status must be Enabled to fall through to MFA check
+    mock_client.get_versioning_status.return_value = {
+        "Status": "Enabled",
+        "MFADelete": "Disabled",
+    }
+
+    mock_client.get_object_lock_status.return_value = "Disabled"
+    mock_client.get_website_hosting_status.return_value = False
+
+    mock_client.get_bucket_policy.return_value = {
+        "Access": "Private",
+        "SSL_Enforced": True,
+        "Log_Sources": ["cloudtrail.amazonaws.com"],
+    }
+
+    scanner = S3SecurityScanner(account_id="123")
+    result = scanner.analyze_resource(
+        {"Name": "logs-bucket", "CreationDate": datetime.now()}
+    )
+
+    assert result.log_sources == ["cloudtrail.amazonaws.com"]
+    risk_strings = " ".join(result.risk_reasons)
+    assert "MFA Delete Disabled" in risk_strings
+    assert "Object Lock Disabled" in risk_strings

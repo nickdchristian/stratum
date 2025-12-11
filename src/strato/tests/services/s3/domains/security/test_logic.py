@@ -24,6 +24,7 @@ def safe_result():
         mfa_delete="Enabled",
         object_lock="Enabled",
         check_type=S3SecurityScanType.ALL,
+        log_sources=[],
     )
 
 
@@ -42,6 +43,7 @@ def risky_result():
         mfa_delete="Disabled",
         object_lock="Disabled",
         check_type=S3SecurityScanType.ALL,
+        log_sources=[],
     )
 
 
@@ -90,6 +92,49 @@ def test_risk_scoring_ssec_warning(safe_result):
     assert "SSE-C Not Blocked" in safe_result.risk_reasons
 
 
+def test_risk_scoring_mfa_object_lock_ignored_for_standard_buckets(risky_result):
+    # Sanitize the risky_result to ONLY have the risks we are testing
+    risky_result.public_access_block_status = True
+    risky_result.encryption = "AES256"
+    risky_result.sse_c = True  # FIX: Must be True to avoid RiskWeight.LOW (5)
+    risky_result.acl_status = "Disabled"
+    risky_result.ssl_enforced = True
+    risky_result.policy_access = "Private"
+
+    # Versioning is enabled, but MFA/ObjectLock are disabled
+    risky_result.versioning = "Enabled"
+    risky_result.mfa_delete = "Disabled"
+    risky_result.object_lock = "Disabled"
+    risky_result.log_sources = []
+
+    risky_result._evaluate_risk()
+
+    assert risky_result.risk_score == RiskWeight.NONE
+    assert "MFA Delete Disabled" not in str(risky_result.risk_reasons)
+    assert "Object Lock Disabled" not in str(risky_result.risk_reasons)
+
+
+def test_risk_scoring_mfa_object_lock_flagged_for_log_buckets(risky_result):
+    risky_result.public_access_block_status = True
+    risky_result.encryption = "AES256"
+    risky_result.sse_c = True  # FIX: Must be True to avoid extraneous SSE-C risk
+    risky_result.acl_status = "Disabled"
+    risky_result.ssl_enforced = True
+    risky_result.policy_access = "Private"
+    risky_result.versioning = "Enabled"
+
+    # Inject log source
+    risky_result.log_sources = ["cloudtrail.amazonaws.com"]
+
+    risky_result._evaluate_risk()
+
+    assert risky_result.risk_score >= RiskWeight.LOW
+    reasons = " ".join(risky_result.risk_reasons)
+    assert "MFA Delete Disabled" in reasons
+    assert "Object Lock Disabled" in reasons
+    assert "cloudtrail.amazonaws.com" in reasons
+
+
 def test_risk_scoring_filtering(safe_result):
     safe_result.public_access_block_status = False
     safe_result.check_type = S3SecurityScanType.ENCRYPTION
@@ -103,7 +148,6 @@ def test_risk_scoring_filtering(safe_result):
 def test_render_style_integration(safe_result):
     safe_result.check_type = S3SecurityScanType.ENCRYPTION
     row = safe_result.get_table_row()
-    # [Account, Name, Region, Date, Enc, SSE, Level, Reasons]
     enc_render = row[4]
 
     assert "[green]AES256[/green]" in enc_render
@@ -112,7 +156,6 @@ def test_render_style_integration(safe_result):
 def test_render_style_risky(risky_result):
     risky_result.check_type = S3SecurityScanType.PUBLIC_ACCESS
     row = risky_result.get_table_row()
-    # [Account, Name, Region, Date, PublicBlock, Level, Reasons]
     pub_render = row[4]
 
     assert "[red]OPEN[/red]" in pub_render
@@ -123,7 +166,6 @@ def test_all_scan_table_is_summary(safe_result):
     headers = safe_result.get_headers(S3SecurityScanType.ALL)
     row = safe_result.get_table_row()
 
-    # Headers: Account ID, Bucket Name, Region, Creation Date, Risk Level, Reasons
     assert len(headers) == 6
     assert len(row) == 6
     assert "Account ID" in headers
@@ -155,7 +197,6 @@ def test_specific_scan_headers_match(safe_result):
 
     assert table_headers == csv_headers
     assert "Object Lock" in table_headers
-    # Base (4) + Dyn (1) + Risk (2) = 7
     assert len(table_headers) == 7
 
 
@@ -187,6 +228,14 @@ def test_json_filtering(safe_result):
     assert "encryption" not in data
     assert "public_access_block_status" not in data
     assert "versioning" not in data
+
+
+def test_json_structure_includes_log_sources(safe_result):
+    safe_result.log_sources = ["config.amazonaws.com"]
+    data = safe_result.to_dict()
+
+    assert "log_sources" in data
+    assert data["log_sources"] == ["config.amazonaws.com"]
 
 
 def test_policy_scoring_safe(policy_result):
@@ -233,7 +282,6 @@ def test_policy_scoring_cumulative(policy_result):
 
 def test_policy_render_style_safe(policy_result):
     row = policy_result.get_table_row()
-    # [Account, Name, Region, Date, Access, SSL, Level, Reasons]
     access_render = row[4]
     ssl_render = row[5]
 

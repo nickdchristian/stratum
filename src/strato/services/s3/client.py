@@ -8,15 +8,9 @@ from botocore.exceptions import ClientError
 class S3Client:
     """
     Wrapper for Boto3 S3 interactions.
-
-    Handles:
-    - Pagination
-    - Adaptive Retries (to handle throttling)
-    - Error suppression (returns defaults on missing permissions/configs)
     """
 
     def __init__(self, session: boto3.Session = None):
-        # Adaptive mode helps with rate limiting during multi-threaded scans
         retry_config = Config(retries={"mode": "adaptive", "max_attempts": 10})
         self.session = session or boto3.Session()
         self._client = self.session.client("s3", config=retry_config)
@@ -39,9 +33,7 @@ class S3Client:
             return "unknown"
 
     def get_public_access_status(self, bucket_name: str) -> bool:
-        """
-        Checks if the bucket has Public Access Block enabled.
-        """
+        """Checks if the bucket has Public Access Block enabled."""
         try:
             response = self._client.get_public_access_block(Bucket=bucket_name)
             public_access_config = response.get("PublicAccessBlockConfiguration", {})
@@ -54,16 +46,26 @@ class S3Client:
                 ]
             )
         except ClientError:
-            # If we can't read the config, assume it's not blocked (fail safe)
             return False
 
     def get_bucket_policy(self, bucket_name: str) -> dict:
         """
         Scans a bucket policy to determine:
-        1. How public the bucket is (String: Public, Potentially Public, Private)
-        2. If SSL is strictly enforced (Boolean)
+        1. Access level (Public/Private)
+        2. SSL Enforcement
+        3. Integration with Critical Logging Services (CloudTrail, Config, etc.)
         """
-        policy_assessment = {"Access": "Private", "SSL_Enforced": False}
+        policy_assessment = {
+            "Access": "Private",
+            "SSL_Enforced": False,
+            "Log_Sources": [],
+        }
+
+        CRITICAL_LOG_PRINCIPALS = {
+            "cloudtrail.amazonaws.com",
+            "config.amazonaws.com",
+            "delivery.logs.amazonaws.com",
+        }
 
         try:
             response = self._client.get_bucket_policy(Bucket=bucket_name)
@@ -71,28 +73,40 @@ class S3Client:
             bucket_policy = json.loads(raw_bucket_policy)
 
             for statement in bucket_policy.get("Statement", []):
-                if statement.get("Effect") == "Deny":
+                effect = statement.get("Effect")
+
+                if effect == "Deny":
                     condition = statement.get("Condition", {})
                     bool_block = condition.get("Bool", {})
                     if str(bool_block.get("aws:SecureTransport")).lower() == "false":
                         policy_assessment["SSL_Enforced"] = True
 
-                if statement.get("Effect") == "Allow":
-                    if policy_assessment["Access"] == "Public":
-                        continue
-
+                if effect == "Allow":
                     principal = statement.get("Principal")
-                    if isinstance(principal, dict) and principal.get("AWS") == "*":
+
+                    if principal == "*" or (
+                        isinstance(principal, dict) and principal.get("AWS") == "*"
+                    ):
                         if statement.get("Condition"):
-                            policy_assessment["Access"] = "Potentially Public"
+                            if policy_assessment["Access"] != "Public":
+                                policy_assessment["Access"] = "Potentially Public"
                         else:
                             policy_assessment["Access"] = "Public"
 
-                    elif principal == "*":
-                        if statement.get("Condition"):
-                            policy_assessment["Access"] = "Potentially Public"
+                    if isinstance(principal, dict):
+                        service_principal = principal.get("Service")
+
+                        if isinstance(service_principal, str):
+                            service_principals = [service_principal]
+                        elif isinstance(service_principal, list):
+                            service_principals = service_principal
                         else:
-                            policy_assessment["Access"] = "Public"
+                            service_principals = []
+
+                        for sp in service_principals:
+                            if sp in CRITICAL_LOG_PRINCIPALS:
+                                if sp not in policy_assessment["Log_Sources"]:
+                                    policy_assessment["Log_Sources"].append(sp)
 
             return policy_assessment
 
@@ -100,12 +114,10 @@ class S3Client:
             if e.response["Error"]["Code"] == "NoSuchBucketPolicy":
                 return policy_assessment
             else:
-                return {"Access": "Error", "SSL_Enforced": False}
+                return {"Access": "Error", "SSL_Enforced": False, "Log_Sources": []}
 
     def get_encryption_status(self, bucket_name: str) -> dict:
-        """
-        Checks for default server-side encryption and SSE-C blocking status.
-        """
+        """Checks for default server-side encryption and SSE-C blocking status."""
         result = {"SSEAlgorithm": "None", "SSECBlocked": False}
         try:
             response = self._client.get_bucket_encryption(Bucket=bucket_name)
@@ -128,9 +140,7 @@ class S3Client:
             return result
 
     def get_acl_status(self, bucket_name: str) -> str:
-        """
-        Returns 'Disabled' if BucketOwnerEnforced, otherwise 'Enabled'.
-        """
+        """Returns 'Disabled' if BucketOwnerEnforced, otherwise 'Enabled'."""
         try:
             response = self._client.get_bucket_ownership_controls(Bucket=bucket_name)
             rules = response.get("OwnershipControls", {}).get("Rules", [])
@@ -145,9 +155,7 @@ class S3Client:
             return "Enabled"
 
     def is_log_target(self, bucket_name: str) -> bool:
-        """
-        Checks if bucket is a target for S3 or CloudFront legacy logging.
-        """
+        """Checks if bucket is a target for S3 or CloudFront legacy logging."""
         cloudfront_log_delivery_id = (
             "c4c1ede66af53448b93c283ce9448c4ba468c9432aa01d700d3878632f77d2d0"
         )
@@ -172,9 +180,8 @@ class S3Client:
 
     def get_versioning_status(self, bucket_name: str) -> dict:
         """
-        Returns a dict
-        with 'Status' (Enabled/Suspended) and 'MFADelete' (Enabled/Disabled).
-        """
+        Returns a dict with 'Status' (Enabled/Suspended)
+        and 'MFADelete' (Enabled/Disabled)."""
         try:
             response = self._client.get_bucket_versioning(Bucket=bucket_name)
             return {
@@ -185,17 +192,13 @@ class S3Client:
             return {"Status": "Suspended", "MFADelete": "Disabled"}
 
     def get_object_lock_status(self, bucket_name: str) -> str:
-        """
-        Returns 'Enabled' or 'Disabled'.
-        AWS throws ObjectLockConfigurationNotFoundError if disabled.
-        """
+        """Returns 'Enabled' or 'Disabled'."""
         try:
             response = self._client.get_object_lock_configuration(Bucket=bucket_name)
             return response.get("ObjectLockConfiguration", {}).get(
                 "ObjectLockEnabled", "Disabled"
             )
         except ClientError as e:
-            # If config is not found, it implies it is disabled
             if e.response["Error"]["Code"] == "ObjectLockConfigurationNotFoundError":
                 return "Disabled"
             return "Unknown"

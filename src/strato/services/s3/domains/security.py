@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Any
@@ -44,6 +44,7 @@ class S3SecurityResult(AuditResult):
     object_lock: str = "Disabled"
     name_predictability: str = "LOW"
     website_hosting: bool | None = None
+    log_sources: list[str] = field(default_factory=list)
     check_type: str = S3SecurityScanType.ALL
 
     def __post_init__(self):
@@ -54,6 +55,7 @@ class S3SecurityResult(AuditResult):
         self.risk_reasons = []
 
         is_all = self.check_type == S3SecurityScanType.ALL
+        is_critical_log_bucket = len(self.log_sources) > 0
 
         if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
             if not self.public_access_block_status:
@@ -95,14 +97,20 @@ class S3SecurityResult(AuditResult):
             if self.versioning != "Enabled":
                 self.risk_score += RiskWeight.MEDIUM
                 self.risk_reasons.append("Versioning Disabled")
-            elif self.mfa_delete != "Enabled":
+            elif self.mfa_delete != "Enabled" and is_critical_log_bucket:
                 self.risk_score += RiskWeight.LOW
-                self.risk_reasons.append("MFA Delete Disabled")
+                formatted_sources = ", ".join(self.log_sources)
+                self.risk_reasons.append(
+                    f"MFA Delete Disabled ({formatted_sources} Bucket)"
+                )
 
         if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
-            if self.object_lock != "Enabled":
+            if self.object_lock != "Enabled" and is_critical_log_bucket:
                 self.risk_score += RiskWeight.LOW
-                self.risk_reasons.append("Object Lock Disabled")
+                formatted_sources = ", ".join(self.log_sources)
+                self.risk_reasons.append(
+                    f"Object Lock Disabled ({formatted_sources} Bucket)"
+                )
 
         if is_all or self.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
             if self.name_predictability == "HIGH":
@@ -118,14 +126,10 @@ class S3SecurityResult(AuditResult):
                 self.risk_reasons.append("Static Website Hosting Enabled")
 
     def _get_scan_columns(self) -> list[tuple[str, str, Any, str]]:
-        """
-        Registry of dynamic columns.
-        Format: (Header Name, JSON Key, Raw Value, Table Render)
-        """
+        """Registry of dynamic columns."""
         columns = []
         is_all = self.check_type == S3SecurityScanType.ALL
 
-        # Only add columns if relevant to the check_type (or ALL)
         if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
             columns.append(
                 (
@@ -233,6 +237,7 @@ class S3SecurityResult(AuditResult):
             "risk_level": self.risk_level,
             "risk_reasons": self.risk_reasons,
             "check_type": self.check_type,
+            "log_sources": self.log_sources,
         }
         for _, key, value, _ in self._get_scan_columns():
             data[key] = value
@@ -240,9 +245,7 @@ class S3SecurityResult(AuditResult):
 
     @classmethod
     def get_csv_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        """
-        CSV Headers: ALWAYS returns the full set of columns (Base + Dynamic + Risk).
-        """
+        """CSV Headers."""
         dummy = cls(resource_arn="", resource_name="", region="", check_type=check_type)
         base_headers = ["Account ID", "Bucket Name", "Region", "Creation Date"]
         dynamic_headers = [col[0] for col in dummy._get_scan_columns()]
@@ -252,10 +255,7 @@ class S3SecurityResult(AuditResult):
 
     @classmethod
     def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        """
-        Table Headers: Returns a SUMMARY for 'ALL' scans to keep the table readable.
-        For specific scans, it returns the full details (same as CSV).
-        """
+        """Table Headers."""
         if check_type == S3SecurityScanType.ALL:
             return [
                 "Account ID",
@@ -269,11 +269,10 @@ class S3SecurityResult(AuditResult):
         return cls.get_csv_headers(check_type)
 
     def get_csv_row(self) -> list[str]:
-        """CSV Row: Aligns with get_csv_headers (Always Full)."""
+        """CSV Row."""
         date_str = self.creation_date.isoformat() if self.creation_date else "Unknown"
         row = [self.account_id, self.resource_name, self.region, date_str]
 
-        # Always inject dynamic columns
         for _, _, val, _ in self._get_scan_columns():
             if isinstance(val, bool):
                 row.append("Yes" if val else "No")
@@ -285,8 +284,7 @@ class S3SecurityResult(AuditResult):
         return row
 
     def get_table_row(self) -> list[str]:
-        """Table Row: Aligns with get_headers (Summary for ALL, Full for others)."""
-
+        """Table Row."""
         base_row = super().get_table_row()
         risk_level_render = base_row[-2]
         risk_reasons_render = base_row[-1]
@@ -297,7 +295,6 @@ class S3SecurityResult(AuditResult):
 
         row = [self.account_id, self.resource_name, self.region, date_str]
 
-        # Only inject dynamic columns if NOT 'ALL' (Risk-Only View)
         if self.check_type != S3SecurityScanType.ALL:
             for _, _, _, render in self._get_scan_columns():
                 row.append(render)
@@ -401,7 +398,11 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         creation_date = bucket_data["CreationDate"]
 
         public_access_blocked = False
-        bucket_policy_config = {"Access": "Private", "SSL_Enforced": False}
+        bucket_policy_config = {
+            "Access": "Private",
+            "SSL_Enforced": False,
+            "Log_Sources": [],
+        }
         encryption = "None"
         sse_c_blocked = False
         acl_status = "Unknown"
@@ -450,6 +451,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
             public_access_block_status=public_access_blocked,
             policy_access=bucket_policy_config["Access"],
             ssl_enforced=bucket_policy_config["SSL_Enforced"],
+            log_sources=bucket_policy_config["Log_Sources"],
             encryption=encryption,
             sse_c=sse_c_blocked,
             acl_status=acl_status,
