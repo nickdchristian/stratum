@@ -26,7 +26,7 @@ def security_scan_all(
         False, "--failures-only", help="Only display resources with risks"
     ),
 ):
-    """Run ALL S3 Security checks (Encryption and Public Access)."""
+    """Run ALL S3 Security checks."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
@@ -42,16 +42,12 @@ def security_scan_all(
 @app.command("encryption")
 def encryption_scan(
     verbose: bool = False,
-    fail_on_risk: bool = typer.Option(
-        False, "--fail-on-risk", help="Exit code 1 if risks found"
-    ),
-    json_output: bool = typer.Option(False, "--json", help="Output JSON"),
-    csv_output: bool = typer.Option(False, "--csv", help="Output CSV"),
-    failures_only: bool = typer.Option(
-        False, "--failures-only", help="Show failures only"
-    ),
+    fail_on_risk: bool = typer.Option(False, "--fail-on-risk"),
+    json_output: bool = typer.Option(False, "--json"),
+    csv_output: bool = typer.Option(False, "--csv"),
+    failures_only: bool = typer.Option(False, "--failures-only"),
 ):
-    """Scan ONLY for default encryption configuration."""
+    """Scan for Encryption configuration."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
@@ -67,16 +63,12 @@ def encryption_scan(
 @app.command("public-access")
 def public_access_scan(
     verbose: bool = False,
-    fail_on_risk: bool = typer.Option(
-        False, "--fail-on-risk", help="Exit code 1 if risks found"
-    ),
-    json_output: bool = typer.Option(False, "--json", help="Output JSON"),
-    csv_output: bool = typer.Option(False, "--csv", help="Output CSV"),
-    failures_only: bool = typer.Option(
-        False, "--failures-only", help="Show failures only"
-    ),
+    fail_on_risk: bool = typer.Option(False, "--fail-on-risk"),
+    json_output: bool = typer.Option(False, "--json"),
+    csv_output: bool = typer.Option(False, "--csv"),
+    failures_only: bool = typer.Option(False, "--failures-only"),
 ):
-    """Scan ONLY for public access blocks."""
+    """Scan for Public Access Block configuration."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
@@ -92,16 +84,12 @@ def public_access_scan(
 @app.command("policy")
 def policy_scan(
     verbose: bool = False,
-    fail_on_risk: bool = typer.Option(
-        False, "--fail-on-risk", help="Exit code 1 if risks found"
-    ),
-    json_output: bool = typer.Option(False, "--json", help="Output JSON"),
-    csv_output: bool = typer.Option(False, "--csv", help="Output CSV"),
-    failures_only: bool = typer.Option(
-        False, "--failures-only", help="Show failures only"
-    ),
+    fail_on_risk: bool = typer.Option(False, "--fail-on-risk"),
+    json_output: bool = typer.Option(False, "--json"),
+    csv_output: bool = typer.Option(False, "--csv"),
+    failures_only: bool = typer.Option(False, "--failures-only"),
 ):
-    """Scan ONLY for bucket policy compliance."""
+    """Scan for Bucket Policy compliance (SSL & Public permissions)."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
@@ -122,7 +110,7 @@ def acl_scan(
     csv_output: bool = typer.Option(False, "--csv"),
     failures_only: bool = typer.Option(False, "--failures-only"),
 ):
-    """Scan ONLY for Legacy ACL usage and Log Delivery compliance."""
+    """Scan for Legacy ACL usage and Log Delivery compliance."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
@@ -177,7 +165,7 @@ def object_lock_scan(
     )
 
 
-@app.command("name_predictability")
+@app.command("naming")
 def name_predictability_scan(
     verbose: bool = False,
     fail_on_risk: bool = typer.Option(False, "--fail-on-risk"),
@@ -185,7 +173,7 @@ def name_predictability_scan(
     csv_output: bool = typer.Option(False, "--csv"),
     failures_only: bool = typer.Option(False, "--failures-only"),
 ):
-    """Scan for Object Lock configuration."""
+    """Scan for Predictable Bucket Names (Entropy check)."""
     run_scan(
         S3SecurityScanner,
         S3SecurityResult,
