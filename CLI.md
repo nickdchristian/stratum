@@ -52,19 +52,19 @@ $ sto s3 security [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `all`: Run ALL S3 Security checks (Encryption and...
-* `encryption`: Scan ONLY for default encryption...
-* `public-access`: Scan ONLY for public access blocks.
-* `policy`: Scan ONLY for bucket policy compliance.
-* `acls`: Scan ONLY for Legacy ACL usage and Log...
+* `all`: Run ALL S3 Security checks.
+* `encryption`: Scan for Encryption configuration.
+* `public-access`: Scan for Public Access Block configuration.
+* `policy`: Scan for Bucket Policy compliance (SSL &amp;...
+* `acls`: Scan for Legacy ACL usage and Log Delivery...
 * `versioning`: Scan for Versioning and MFA Delete...
 * `object-lock`: Scan for Object Lock configuration.
-* `name_predictability`: Scan for Object Lock configuration.
+* `naming`: Scan for Predictable Bucket Names (Entropy...
 * `website`: Scan for Static Website Hosting...
 
 #### `sto s3 security all`
 
-Run ALL S3 Security checks (Encryption and Public Access).
+Run ALL S3 Security checks.
 
 **Usage**:
 
@@ -83,7 +83,7 @@ $ sto s3 security all [OPTIONS]
 
 #### `sto s3 security encryption`
 
-Scan ONLY for default encryption configuration.
+Scan for Encryption configuration.
 
 **Usage**:
 
@@ -94,15 +94,15 @@ $ sto s3 security encryption [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`: Exit code 1 if risks found
-* `--json`: Output JSON
-* `--csv`: Output CSV
-* `--failures-only`: Show failures only
+* `--fail-on-risk`
+* `--json`
+* `--csv`
+* `--failures-only`
 * `--help`: Show this message and exit.
 
 #### `sto s3 security public-access`
 
-Scan ONLY for public access blocks.
+Scan for Public Access Block configuration.
 
 **Usage**:
 
@@ -113,15 +113,15 @@ $ sto s3 security public-access [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`: Exit code 1 if risks found
-* `--json`: Output JSON
-* `--csv`: Output CSV
-* `--failures-only`: Show failures only
+* `--fail-on-risk`
+* `--json`
+* `--csv`
+* `--failures-only`
 * `--help`: Show this message and exit.
 
 #### `sto s3 security policy`
 
-Scan ONLY for bucket policy compliance.
+Scan for Bucket Policy compliance (SSL &amp; Public permissions).
 
 **Usage**:
 
@@ -132,15 +132,15 @@ $ sto s3 security policy [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`: Exit code 1 if risks found
-* `--json`: Output JSON
-* `--csv`: Output CSV
-* `--failures-only`: Show failures only
+* `--fail-on-risk`
+* `--json`
+* `--csv`
+* `--failures-only`
 * `--help`: Show this message and exit.
 
 #### `sto s3 security acls`
 
-Scan ONLY for Legacy ACL usage and Log Delivery compliance.
+Scan for Legacy ACL usage and Log Delivery compliance.
 
 **Usage**:
 
@@ -195,14 +195,14 @@ $ sto s3 security object-lock [OPTIONS]
 * `--failures-only`
 * `--help`: Show this message and exit.
 
-#### `sto s3 security name_predictability`
+#### `sto s3 security naming`
 
-Scan for Object Lock configuration.
+Scan for Predictable Bucket Names (Entropy check).
 
 **Usage**:
 
 ```console
-$ sto s3 security name_predictability [OPTIONS]
+$ sto s3 security naming [OPTIONS]
 ```
 
 **Options**:

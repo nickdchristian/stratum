@@ -128,7 +128,7 @@ class S3SecurityResult(AuditResult):
         if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
             columns.append(
                 (
-                    "Public Blocked",
+                    "Public Access Block",
                     "public_access_blocked",
                     self.public_access_blocked,
                     self._render_public,
@@ -323,8 +323,8 @@ class S3SecurityResult(AuditResult):
     @property
     def _render_ssl_enforced(self):
         if self.ssl_enforced:
-            return colorize(self.ssl_enforced, AuditStatus.PASS)
-        return colorize(self.ssl_enforced, AuditStatus.FAIL)
+            return colorize("Yes", AuditStatus.PASS)
+        return colorize("No", AuditStatus.FAIL)
 
     @property
     def _render_acl(self):
