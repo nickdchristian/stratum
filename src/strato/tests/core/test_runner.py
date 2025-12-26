@@ -156,9 +156,9 @@ def test_run_scan_multi_account_integration():
             csv_output=False,
             failures_only=False,
             org_role="OrgRole",
+            view_class="MockView"
         )
 
-        # Verify MockScanner wasn't called directly (single account path)
         # Verify scan_single_account was called for each account
         assert mock_scan_single.call_count == 2
 
@@ -167,3 +167,7 @@ def test_run_scan_multi_account_integration():
         results_passed = mock_presenter_cls.call_args[0][0]
         assert len(results_passed) == 1
         assert results_passed[0].account_id == "111"
+
+        # Verify view_class made it to the Presenter (it's passed as a kwarg in run_scan)
+        presenter_kwargs = mock_presenter_cls.call_args[1]
+        assert presenter_kwargs.get("view_class") == "MockView"

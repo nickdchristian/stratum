@@ -7,7 +7,6 @@ from typing import Any
 from strato.core.models import AuditResult
 from strato.core.scanner import BaseScanner
 from strato.core.scoring import ObservationLevel
-from strato.core.style import AuditStatus, colorize
 from strato.services.s3 import utils
 from strato.services.s3.client import S3Client
 
@@ -26,12 +25,17 @@ class S3SecurityScanType(StrEnum):
 
 @dataclass
 class S3SecurityResult(AuditResult):
+    """
+    Pure Data Model.
+    Holds the state of the resource and the evaluation of that state (findings).
+    Does NOT contain logic for how to print or colorize this data.
+    """
     resource_arn: str
     resource_name: str
     region: str
     account_id: str
 
-    creation_date: datetime = None
+    creation_date: datetime | None = None
     public_access_block_status: bool = False
     policy_access: str = "Unknown"
     ssl_enforced: bool = False
@@ -52,8 +56,8 @@ class S3SecurityResult(AuditResult):
 
     def _evaluate_status(self):
         """
-        Evaluates the resource configuration against opinionated rules
-        to determine the ObservationLevel.
+        Domain Logic: Evaluates the resource configuration against rules
+        to determine the risk score and findings.
         """
         self.status_score = 0
         self.findings = []
@@ -81,7 +85,6 @@ class S3SecurityResult(AuditResult):
             if self.encryption == "None":
                 self.status_score += ObservationLevel.MEDIUM
                 self.findings.append("Encryption Missing")
-
             if not self.sse_c:
                 self.status_score += ObservationLevel.LOW
                 self.findings.append("SSE-C Not Blocked")
@@ -127,253 +130,30 @@ class S3SecurityResult(AuditResult):
                 self.status_score += ObservationLevel.HIGH
                 self.findings.append("Static Website Hosting Enabled")
 
-    def _get_scan_columns(self) -> list[tuple[str, str, Any, str]]:
-        """Registry of dynamic columns."""
-        columns = []
-        is_all = self.check_type == S3SecurityScanType.ALL
-
-        if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
-            columns.append(
-                (
-                    "Public Access Block Status",
-                    "public_access_blocked_status",
-                    self.public_access_block_status,
-                    self._render_public_access_block,
-                )
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.POLICY:
-            columns.append(
-                (
-                    "Policy Access",
-                    "policy_access",
-                    self.policy_access,
-                    self._render_policy_access,
-                )
-            )
-            columns.append(
-                (
-                    "SSL Enforced",
-                    "ssl_enforced",
-                    self.ssl_enforced,
-                    self._render_ssl_enforced,
-                )
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.ENCRYPTION:
-            columns.append(
-                ("Encryption", "encryption", self.encryption, self._render_encryption)
-            )
-            columns.append(("SSE-C", "sse_c", self.sse_c, self._render_ssec))
-
-        if is_all or self.check_type == S3SecurityScanType.ACLS:
-            columns.append(
-                ("ACL Status", "acl_status", self.acl_status, self._render_acl)
-            )
-            columns.append(
-                (
-                    "Log Target",
-                    "log_target",
-                    self.log_target,
-                    "Yes" if self.log_target else "No",
-                )
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.VERSIONING:
-            columns.append(
-                ("Versioning", "versioning", self.versioning, self._render_versioning)
-            )
-            columns.append(
-                ("MFA Delete", "mfa_delete", self.mfa_delete, self._render_mfa_delete)
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.OBJECT_LOCK:
-            columns.append(
-                (
-                    "Object Lock",
-                    "object_lock",
-                    self.object_lock,
-                    self._render_object_lock,
-                )
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
-            columns.append(
-                (
-                    "Name Predictability",
-                    "name_predictability",
-                    self.name_predictability,
-                    self._render_name_predictability,
-                )
-            )
-
-        if is_all or self.check_type == S3SecurityScanType.WEBSITE_HOSTING:
-            columns.append(
-                (
-                    "Website Hosting",
-                    "website_hosting",
-                    self.website_hosting,
-                    self._render_website_hosting,
-                )
-            )
-
-        return columns
-
     def to_dict(self) -> dict[str, Any]:
-        """JSON output."""
-        data = {
+        """Simple data serialization."""
+        return {
             "account_id": self.account_id,
             "resource_arn": self.resource_arn,
             "resource_name": self.resource_name,
             "region": self.region,
-            "creation_date": self.creation_date.isoformat()
-            if self.creation_date
-            else None,
-            "status_score": self.status_score,  # Renamed
-            "status": self.status,  # Renamed
-            "findings": self.findings,  # Renamed
+            "creation_date": self.creation_date.isoformat() if self.creation_date else None,
+            "status_score": self.status_score,
+            "status": self.status,
+            "findings": self.findings,
             "check_type": self.check_type,
-            "log_sources": self.log_sources,
+            "configuration": {
+                "encryption": self.encryption,
+                "public_access_blocked": self.public_access_block_status,
+                "versioning": self.versioning,
+            }
         }
-        for _, key, value, _ in self._get_scan_columns():
-            data[key] = value
-        return data
-
-    @classmethod
-    def get_csv_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        """CSV Headers."""
-        dummy = cls(resource_arn="", resource_name="", region="", check_type=check_type)
-        base_headers = ["Account ID", "Bucket Name", "Region", "Creation Date"]
-        dynamic_headers = [col[0] for col in dummy._get_scan_columns()]
-
-        status_headers = ["Status", "Findings"]
-
-        return base_headers + dynamic_headers + status_headers
-
-    @classmethod
-    def get_headers(cls, check_type: str = S3SecurityScanType.ALL) -> list[str]:
-        """Table Headers."""
-        if check_type == S3SecurityScanType.ALL:
-            return [
-                "Account ID",
-                "Bucket Name",
-                "Region",
-                "Creation Date",
-                "Status",
-                "Findings",
-            ]
-
-        return cls.get_csv_headers(check_type)
-
-    def get_csv_row(self) -> list[str]:
-        """CSV Row."""
-        date_str = self.creation_date.isoformat() if self.creation_date else "Unknown"
-        row = [self.account_id, self.resource_name, self.region, date_str]
-
-        for _, _, val, _ in self._get_scan_columns():
-            if isinstance(val, bool):
-                row.append("Yes" if val else "No")
-            else:
-                row.append(str(val))
-
-        row.append(self.status)
-        row.append("; ".join(self.findings))
-        return row
-
-    def get_table_row(self) -> list[str]:
-        """Table Row."""
-        base_row = super().get_table_row()
-
-        # [Account, Resource, Region, StatusColorized, Findings]
-        status_render = base_row[-2]
-        findings_render = base_row[-1]
-
-        date_str = (
-            self.creation_date.strftime("%Y-%m-%d") if self.creation_date else "Unknown"
-        )
-
-        row = [self.account_id, self.resource_name, self.region, date_str]
-
-        if self.check_type != S3SecurityScanType.ALL:
-            for _, _, _, render in self._get_scan_columns():
-                row.append(render)
-
-        row.append(status_render)
-        row.append(findings_render)
-
-        return row
-
-    @property
-    def _render_encryption(self):
-        if self.encryption != "None":
-            return colorize(self.encryption, AuditStatus.PASS)
-        return colorize("Missing", AuditStatus.WARN)
-
-    @property
-    def _render_ssec(self):
-        if self.sse_c:
-            return colorize("Blocked", AuditStatus.PASS)
-        return colorize("Allowed", AuditStatus.WARN)
-
-    @property
-    def _render_public_access_block(self):
-        if self.public_access_block_status:
-            return colorize("Blocked", AuditStatus.PASS)
-        return colorize("OPEN", AuditStatus.FAIL)
-
-    @property
-    def _render_policy_access(self):
-        if self.policy_access == "Private":
-            return colorize(self.policy_access, AuditStatus.PASS)
-        if self.policy_access == "Potentially Public":
-            return colorize(self.policy_access, AuditStatus.WARN)
-        return colorize(self.policy_access, AuditStatus.FAIL)
-
-    @property
-    def _render_ssl_enforced(self):
-        if self.ssl_enforced:
-            return colorize("Yes", AuditStatus.PASS)
-        return colorize("No", AuditStatus.FAIL)
-
-    @property
-    def _render_acl(self):
-        if self.acl_status == "Disabled":
-            return colorize("Disabled", AuditStatus.PASS)
-
-        status_text = "Enabled (Logs)" if self.log_target else "Enabled"
-        color = AuditStatus.WARN if self.log_target else AuditStatus.FAIL
-
-        return colorize(status_text, color)
-
-    @property
-    def _render_versioning(self):
-        color = AuditStatus.PASS if self.versioning == "Enabled" else AuditStatus.FAIL
-        return colorize(self.versioning, color)
-
-    @property
-    def _render_mfa_delete(self):
-        color = AuditStatus.PASS if self.mfa_delete == "Enabled" else AuditStatus.WARN
-        return colorize(self.mfa_delete, color)
-
-    @property
-    def _render_object_lock(self):
-        color = AuditStatus.PASS if self.object_lock == "Enabled" else AuditStatus.WARN
-        return colorize(self.object_lock, color)
-
-    @property
-    def _render_name_predictability(self):
-        if self.name_predictability == "LOW":
-            return colorize(self.name_predictability, AuditStatus.PASS)
-        return colorize(self.name_predictability, AuditStatus.WARN)
-
-    @property
-    def _render_website_hosting(self):
-        if self.website_hosting:
-            return colorize("Enabled", AuditStatus.WARN)
-        return colorize("Disabled", AuditStatus.PASS)
 
 
 class S3SecurityScanner(BaseScanner[S3SecurityResult]):
+    """
+    Orchestrates the fetching of S3 data and creation of S3SecurityResult objects.
+    """
     def __init__(
         self,
         check_type: str = S3SecurityScanType.ALL,
@@ -394,8 +174,9 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         bucket_arn = bucket_data.get("BucketArn", f"arn:aws:s3:::{bucket_data['Name']}")
         bucket_name = bucket_data["Name"]
         region = self.client.get_bucket_region(bucket_name)
-        creation_date = bucket_data["CreationDate"]
+        creation_date = bucket_data.get("CreationDate")
 
+        # Default / Zero Values
         public_access_blocked = False
         bucket_policy_config = {
             "Access": "Private",
@@ -413,6 +194,7 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
 
         is_all = self.check_type == S3SecurityScanType.ALL
 
+        # Fetch details based on check type
         if is_all or self.check_type == S3SecurityScanType.PUBLIC_ACCESS:
             public_access_blocked = self.client.get_public_access_status(bucket_name)
 

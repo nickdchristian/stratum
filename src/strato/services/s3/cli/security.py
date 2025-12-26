@@ -1,11 +1,12 @@
 import typer
 
 from strato.core.runner import run_scan
-from strato.services.s3.domains.security import (
+from strato.services.s3.domains.security.checks import (
     S3SecurityResult,
     S3SecurityScanner,
     S3SecurityScanType,
 )
+from strato.services.s3.domains.security.views import S3SecurityView
 
 app = typer.Typer(help="S3 Security Audits")
 
@@ -36,6 +37,7 @@ def security_scan_all(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -59,6 +61,7 @@ def encryption_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -82,6 +85,7 @@ def public_access_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -105,6 +109,7 @@ def policy_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -128,6 +133,7 @@ def acl_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -151,6 +157,7 @@ def versioning_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -174,6 +181,7 @@ def object_lock_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -197,6 +205,7 @@ def name_predictability_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )
 
 
@@ -220,4 +229,5 @@ def website_scan(
         csv_output,
         failures_only,
         org_role,
+        view_class=S3SecurityView,
     )

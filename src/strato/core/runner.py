@@ -1,6 +1,7 @@
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -14,11 +15,6 @@ console = Console()
 
 
 def setup_logging(verbose: bool):
-    """
-    Configures logging.
-    In verbose mode, we still log to stderr for debugging.
-    In normal mode, we keep it quiet to allow the Console to control output.
-    """
     log_level = logging.DEBUG if verbose else logging.ERROR
     logging.basicConfig(
         level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -26,7 +22,6 @@ def setup_logging(verbose: bool):
 
 
 def get_org_accounts() -> list[dict]:
-    """Fetches all ACTIVE accounts from AWS Organizations."""
     org_client = boto3.client("organizations")
     accounts = []
     paginator = org_client.get_paginator("list_accounts")
@@ -44,7 +39,6 @@ def get_org_accounts() -> list[dict]:
 
 
 def assume_role_session(account_id: str, role_name: str) -> boto3.Session | None:
-    """Assumes a role in the target account and returns a Session."""
     sts_client = boto3.client("sts")
     role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
 
@@ -65,16 +59,11 @@ def assume_role_session(account_id: str, role_name: str) -> boto3.Session | None
 def scan_single_account(
     account: dict, role_name: str, scanner_cls: type[BaseScanner], check_type: str
 ) -> tuple[list[AuditResult], str | None]:
-    """
-    Worker function.
-    Returns: (List of Results, Error Message if failed)
-    """
     account_id = account["Id"]
     account_name = account["Name"]
     target_session = assume_role_session(account_id, role_name)
 
     if not target_session:
-        # Return the error cleanly instead of logging it immediately
         return [], f"Access Denied: {account_id} ({account_name})"
 
     scanner = scanner_cls(
@@ -97,6 +86,7 @@ def run_scan(
     csv_output: bool,
     failures_only: bool,
     org_role: str = None,
+    view_class: Any = None,
 ):
     setup_logging(verbose)
     all_results = []
@@ -134,10 +124,9 @@ def run_scan(
             )
             for skip_msg in skipped_accounts:
                 console.print(f"  • {skip_msg}", style="yellow")
-            console.print("")  # Add a spacer line
+            console.print("")
 
     else:
-        # Single Account execution
         sts = boto3.client("sts")
         try:
             current_account = sts.get_caller_identity()["Account"]
@@ -162,7 +151,10 @@ def run_scan(
         all_results = [result for result in all_results if result.is_violation]
 
     presenter = AuditPresenter(
-        all_results, result_type=result_cls, check_type=check_type
+        all_results,
+        result_type=result_cls,
+        check_type=check_type,
+        view_class=view_class
     )
 
     if json_output:

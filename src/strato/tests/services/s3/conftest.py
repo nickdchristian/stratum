@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from strato.services.s3.domains.security import S3SecurityResult, S3SecurityScanType
+from strato.services.s3.domains.security.checks import S3SecurityResult, S3SecurityScanType
 
 
 @pytest.fixture

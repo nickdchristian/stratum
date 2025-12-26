@@ -1,13 +1,12 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from strato.services.s3.domains.security import (
+from strato.services.s3.domains.security.checks import (
     S3SecurityResult,
     S3SecurityScanner,
 )
 
-
-@patch("strato.services.s3.domains.security.S3Client")
+@patch("strato.services.s3.domains.security.checks.S3Client")
 def test_scanner_analyze_resource(mock_client_cls):
     """
     Verifies that the scanner correctly maps raw AWS data to an S3SecurityResult,
@@ -49,6 +48,7 @@ def test_scanner_analyze_resource(mock_client_cls):
 
     assert isinstance(result, S3SecurityResult)
     assert result.resource_name == "risk-bucket-a1b2c3d4"
+    assert result.status == "CRITICAL"
     assert result.account_id == "123456789012"
     assert result.encryption == "AES256"
     assert result.sse_c is True
@@ -58,7 +58,7 @@ def test_scanner_analyze_resource(mock_client_cls):
     assert "Public Access Allowed" in result.findings
 
 
-@patch("strato.services.s3.domains.security.S3Client")
+@patch("strato.services.s3.domains.security.checks.S3Client")
 def test_scanner_handles_access_denied(mock_client_cls):
     """
     Ensure the scanner correctly processes the 'default/safe' values
@@ -100,7 +100,7 @@ def test_scanner_handles_access_denied(mock_client_cls):
     assert "Encryption Missing" in result.findings
 
 
-@patch("strato.services.s3.domains.security.S3Client")
+@patch("strato.services.s3.domains.security.checks.S3Client")
 def test_scanner_session_injection(mock_client_cls):
     """
     Ensure the scanner accepts a boto3 session (for multi-account assumes)
@@ -114,7 +114,7 @@ def test_scanner_session_injection(mock_client_cls):
     assert scanner.account_id == "55555"
 
 
-@patch("strato.services.s3.domains.security.S3Client")
+@patch("strato.services.s3.domains.security.checks.S3Client")
 def test_scanner_detects_log_bucket(mock_client_cls):
     """
     Verifies that if the client detects log sources, they are passed to the result

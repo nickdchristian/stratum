@@ -1,5 +1,6 @@
 import csv
 import sys
+from typing import Protocol, Any
 
 from rich.console import Console
 from rich.table import Table
@@ -9,56 +10,85 @@ from .models import AuditResult
 console = Console()
 
 
-class AuditPresenter:
-    """
-    Handles the presentation layer.
-    Decouples the logic of *how* to display data from the data itself.
-    """
+class ViewProtocol(Protocol):
+    @classmethod
+    def get_headers(cls, check_type: str) -> list[str]: ...
 
+    @classmethod
+    def get_csv_headers(cls, check_type: str) -> list[str]: ...
+
+    @classmethod
+    def format_row(cls, result: Any) -> list[str]: ...
+
+    @classmethod
+    def format_csv_row(cls, result: Any) -> list[str]: ...
+
+
+class AuditPresenter:
     def __init__(
-        self,
-        results: list[AuditResult],
-        result_type: type[AuditResult],
-        check_type: str = "ALL",
+            self,
+            results: list[AuditResult],
+            result_type: type[AuditResult],
+            check_type: str = "ALL",
+            view_class: type[ViewProtocol] | None = None,
     ):
         self.results = results
         self.result_type = result_type
         self.check_type = check_type
+        self.view_class = view_class
 
     def print_json(self):
-        """Dumps full result objects to stdout as JSON."""
         console.print_json(data=[r.to_dict() for r in self.results])
 
     def print_csv(self):
-        """Writes CSV data to stdout."""
         writer = csv.writer(sys.stdout)
 
-        if hasattr(self.result_type, "get_csv_headers"):
+        if self.view_class and hasattr(self.view_class, "get_csv_headers"):
+            headers = self.view_class.get_csv_headers(self.check_type)
+        elif self.view_class:
+            headers = self.view_class.get_headers(self.check_type)
+        elif hasattr(self.result_type, "get_csv_headers"):
             headers = self.result_type.get_csv_headers(self.check_type)
         else:
-            headers = self.result_type.get_headers(self.check_type)
+            headers = ["Account", "Resource", "Region", "Status", "Findings"]
 
         writer.writerow(headers)
 
         for result in self.results:
-            writer.writerow(result.get_csv_row())
+            if self.view_class:
+                row = self.view_class.format_csv_row(result)
+            elif hasattr(result, "get_csv_row"):
+                row = result.get_csv_row()
+            else:
+                row = [result.account_id, result.resource_name, result.region, result.status, str(result.findings)]
+
+            writer.writerow(row)
 
     def print_table(self, title: str):
-        """Renders a formatted Rich table to the console."""
         table = Table(title=title)
 
-        headers = self.result_type.get_headers(self.check_type)
+        if self.view_class:
+            headers = self.view_class.get_headers(self.check_type)
+        elif hasattr(self.result_type, "get_headers"):
+            headers = self.result_type.get_headers(self.check_type)
+        else:
+            headers = ["Account", "Resource", "Region", "Status", "Findings"]
+
         for header in headers:
             table.add_column(header)
 
         for result in self.results:
-            table.add_row(*result.get_table_row())
+            if self.view_class:
+                table.add_row(*self.view_class.format_row(result))
+            elif hasattr(result, "get_table_row"):
+                table.add_row(*result.get_table_row())
+            else:
+                table.add_row(result.account_id, result.resource_name, result.status)
 
         console.print(table)
         self._print_summary()
 
     def _print_summary(self):
-        """Prints the final pass/fail summary below the table."""
         violation_count = sum(
             len(result.findings) for result in self.results if result.is_violation
         )
