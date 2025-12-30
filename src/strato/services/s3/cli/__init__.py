@@ -1,7 +1,8 @@
 import typer
 
-from .security import app as security_app
+from strato.services.s3.cli import inventory, security  # <--- NEW
 
-s3_app = typer.Typer(help="S3 Audit Commands")
+s3_app = typer.Typer(help="S3 Auditing & Inventory")
 
-s3_app.add_typer(security_app, name="security")
+s3_app.add_typer(security.app, name="security")
+s3_app.add_typer(inventory.app, name="inventory")

@@ -37,10 +37,8 @@ def test_cli_docs_are_up_to_date(tmp_path):
     if not DOC_FILE.exists():
         pytest.fail(
             f"File {DOC_FILE} not found. "
-            f"Please run this command to fix it:"
-            f"\n\n uv run typer {APP_MODULE} utils docs "
-            f"--name {APP_NAME} "
-            f"--output {DOC_FILE}"
+            f"Run: uv run typer {APP_MODULE} utils docs "
+            f"--name {APP_NAME} --output {DOC_FILE}"
         )
 
     actual_content = DOC_FILE.read_text()
@@ -48,6 +46,6 @@ def test_cli_docs_are_up_to_date(tmp_path):
 
     assert actual_content == generated_content, (
         f"{DOC_FILE} is out of sync.\n"
-        f"Run this command to fix it:\n\n"
-        f"uv run typer {APP_MODULE} utils docs --name {APP_NAME} --output {DOC_FILE}"
+        f"Run: uv run typer {APP_MODULE} utils docs "
+        f"--name {APP_NAME} --output {DOC_FILE}"
     )

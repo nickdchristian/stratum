@@ -1,34 +1,55 @@
+from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from enum import IntEnum
+from typing import Any, TypeVar
 
-from strato.core.scoring import ObservationLevel  #
+import boto3
+from rich.console import Console
+
+console_err = Console(stderr=True)
+
+
+class ObservationLevel(IntEnum):
+    """
+    Standardized scoring levels for audit findings across all Well-Architected pillars.
+
+    Use these levels to weigh the impact of a finding regardless of the category:
+
+    * **CRITICAL (100):** Existential threat to the workload or business.
+    * **HIGH (50):** Significant risk or violation of core architecture standards.
+    * **MEDIUM (20):** Deviation from best practices. Not immediate, but technical debt.
+    * **LOW (5):** Hygiene, organization, or minor optimization opportunities.
+    * **INFO (1):** Contextual data. Not a defect, but useful for the report.
+    * **PASS (0):** The resource fully complies with the check requirements.
+    """
+
+    CRITICAL = 100
+    HIGH = 50
+    MEDIUM = 20
+    LOW = 5
+    INFO = 1
+    PASS = 0
 
 
 @dataclass
 class AuditResult:
-    """
-    Base data structure for any resource audit.
-    """
+    """Base data structure for any resource audit."""
 
     resource_arn: str
     resource_name: str
     region: str
     account_id: str = "Unknown"
-
     status_score: int = 0
-
     findings: list[str] = field(default_factory=list)
 
     @property
     def is_violation(self) -> bool:
-        """
-        Returns True if the resource has a negative finding (Low to Critical).
-        """
         return self.status_score >= ObservationLevel.LOW
 
     @property
     def status(self) -> str:
-        """Maps the numeric score to a human-readable status string."""
         if self.status_score >= ObservationLevel.CRITICAL:
             return "CRITICAL"
         if self.status_score >= ObservationLevel.HIGH:
@@ -39,49 +60,60 @@ class AuditResult:
             return "LOW"
         if self.status_score == ObservationLevel.INFO:
             return "INFO"
-
         return "PASS"
 
     def to_dict(self) -> dict[str, Any]:
-        """Serializes the object for JSON output."""
         return asdict(self)
 
-    @classmethod
-    def get_headers(cls, check_type: str = "ALL") -> list[str]:
-        # Updated header names
-        return ["Account ID", "Resource", "Region", "Status", "Findings"]
 
-    def get_table_row(self) -> list[str]:
+T = TypeVar("T", bound=AuditResult)
+
+
+class BaseScanner[AuditResultType: AuditResult](ABC):
+    """Abstract base class for all resource scanners."""
+
+    def __init__(
+        self,
+        check_type: str = "ALL",
+        session: boto3.Session = None,
+        account_id: str = "Unknown",
+    ):
+        self.check_type = check_type
+        self.session = session or boto3.Session()
+        self.account_id = account_id
+
+    @property
+    @abstractmethod
+    def service_name(self) -> str:
+        pass
+
+    @abstractmethod
+    def fetch_resources(self) -> Iterable[Any]:
+        pass
+
+    @abstractmethod
+    def analyze_resource(self, resource: Any) -> T:
+        pass
+
+    def scan(self, silent: bool = False) -> list[T]:
         """
-        Returns a list of strings formatted for the Rich Table library.
+        Orchestrates the fetching and analyzing of resources.
+        Uses console_err for status to avoid polluting stdout.
         """
-        status_color_map = {
-            "CRITICAL": "red",
-            "HIGH": "orange1",
-            "MEDIUM": "yellow",
-            "LOW": "blue",
-            "INFO": "dim white",
-            "PASS": "green",
-        }
-        color = status_color_map.get(self.status, "white")
+        results = []
+        resource_stream = self.fetch_resources()
 
-        status_render = f"[{color}]{self.status}[/{color}]"
-        findings_render = ", ".join(self.findings) if self.findings else "-"
+        def process_stream():
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                results.extend(executor.map(self.analyze_resource, resource_stream))
 
-        return [
-            self.account_id,
-            self.resource_name,
-            self.region,
-            status_render,
-            findings_render,
-        ]
+        if silent:
+            process_stream()
+        else:
+            with console_err.status(
+                f"[bold yellow]Scanning {self.service_name} resources...",
+                spinner="dots",
+            ):
+                process_stream()
 
-    def get_csv_row(self) -> list[str]:
-        findings_render = "; ".join(self.findings)
-        return [
-            self.account_id,
-            self.resource_name,
-            self.region,
-            self.status,
-            findings_render,
-        ]
+        return results

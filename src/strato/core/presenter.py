@@ -1,13 +1,26 @@
 import csv
 import sys
+from enum import StrEnum
 from typing import Any, Protocol
 
 from rich.console import Console
 from rich.table import Table
 
-from .models import AuditResult
+from strato.core.models import AuditResult
 
-console = Console()
+console_out = Console(file=sys.stdout)
+console_err = Console(stderr=True)
+
+
+class AuditStatus(StrEnum):
+    PASS = "green"
+    FAIL = "red"
+    WARN = "yellow"
+    INFO = "blue"
+
+
+def colorize(text: str, status: AuditStatus) -> str:
+    return f"[{status}]{text}[/{status}]"
 
 
 class ViewProtocol(Protocol):
@@ -24,74 +37,81 @@ class ViewProtocol(Protocol):
     def format_csv_row(cls, result: Any) -> list[str]: ...
 
 
+class GenericView:
+    @classmethod
+    def get_headers(cls, check_type: str) -> list[str]:
+        return ["Account ID", "Resource", "Region", "Status", "Findings"]
+
+    @classmethod
+    def get_csv_headers(cls, check_type: str) -> list[str]:
+        return cls.get_headers(check_type)
+
+    @classmethod
+    def format_row(cls, result: AuditResult) -> list[str]:
+        status_color_map = {
+            "CRITICAL": "red",
+            "HIGH": "orange1",
+            "MEDIUM": "yellow",
+            "LOW": "blue",
+            "INFO": "dim white",
+            "PASS": "green",
+        }
+        color = status_color_map.get(result.status, "white")
+        status_render = f"[{color}]{result.status}[/{color}]"
+        findings_render = ", ".join(result.findings) if result.findings else "-"
+
+        return [
+            result.account_id,
+            result.resource_name,
+            result.region,
+            status_render,
+            findings_render,
+        ]
+
+    @classmethod
+    def format_csv_row(cls, result: AuditResult) -> list[str]:
+        return [
+            result.account_id,
+            result.resource_name,
+            result.region,
+            result.status,
+            "; ".join(result.findings),
+        ]
+
+
 class AuditPresenter:
     def __init__(
         self,
         results: list[AuditResult],
-        result_type: type[AuditResult],
         check_type: str = "ALL",
-        view_class: type[ViewProtocol] | None = None,
+        view_class: type[ViewProtocol] = GenericView,
     ):
         self.results = results
-        self.result_type = result_type
         self.check_type = check_type
-        self.view_class = view_class
+        self.view_class = view_class or GenericView
 
     def print_json(self):
-        console.print_json(data=[r.to_dict() for r in self.results])
+        console_out.print_json(data=[r.to_dict() for r in self.results])
 
     def print_csv(self):
         writer = csv.writer(sys.stdout)
-
-        if self.view_class and hasattr(self.view_class, "get_csv_headers"):
-            headers = self.view_class.get_csv_headers(self.check_type)
-        elif self.view_class:
-            headers = self.view_class.get_headers(self.check_type)
-        elif hasattr(self.result_type, "get_csv_headers"):
-            headers = self.result_type.get_csv_headers(self.check_type)
-        else:
-            headers = ["Account", "Resource", "Region", "Status", "Findings"]
-
+        headers = self.view_class.get_csv_headers(self.check_type)
         writer.writerow(headers)
 
         for result in self.results:
-            if self.view_class:
-                row = self.view_class.format_csv_row(result)
-            elif hasattr(result, "get_csv_row"):
-                row = result.get_csv_row()
-            else:
-                row = [
-                    result.account_id,
-                    result.resource_name,
-                    result.region,
-                    result.status,
-                    str(result.findings),
-                ]
-
-            writer.writerow(row)
+            writer.writerow(self.view_class.format_csv_row(result))
 
     def print_table(self, title: str):
-        table = Table(title=title)
-
-        if self.view_class:
-            headers = self.view_class.get_headers(self.check_type)
-        elif hasattr(self.result_type, "get_headers"):
-            headers = self.result_type.get_headers(self.check_type)
-        else:
-            headers = ["Account", "Resource", "Region", "Status", "Findings"]
+        table = Table(title=title, show_lines=True)
+        headers = self.view_class.get_headers(self.check_type)
 
         for header in headers:
             table.add_column(header)
 
         for result in self.results:
-            if self.view_class:
-                table.add_row(*self.view_class.format_row(result))
-            elif hasattr(result, "get_table_row"):
-                table.add_row(*result.get_table_row())
-            else:
-                table.add_row(result.account_id, result.resource_name, result.status)
+            table.add_row(*self.view_class.format_row(result))
 
-        console.print(table)
+        console_out.print(table)
         self._print_summary()
 
     def _print_summary(self):
@@ -99,6 +119,8 @@ class AuditPresenter:
             len(result.findings) for result in self.results if result.is_violation
         )
         if violation_count > 0:
-            console.print(f"\n[bold red]Found {violation_count} violations.[/bold red]")
+            console_err.print(
+                f"\n[bold red]Found {violation_count} violations.[/bold red]"
+            )
         else:
-            console.print("\n[bold green]All checks passed.[/bold green]")
+            console_err.print("\n[bold green]All checks passed.[/bold green]")

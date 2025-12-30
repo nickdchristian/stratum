@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from typing import Any
 
-from strato.core.style import AuditStatus, colorize
+from strato.core.presenter import AuditStatus, colorize
 from strato.services.s3.domains.security.checks import (
     S3SecurityResult,
     S3SecurityScanType,
@@ -91,118 +92,113 @@ class S3SecurityView:
         return ", ".join(findings) if findings else "-"
 
     @classmethod
-    def _get_dynamic_columns(cls, r: S3SecurityResult) -> list[tuple[str, Any, Any]]:
-        columns = []
+    def _get_dynamic_columns(
+        cls, r: S3SecurityResult
+    ) -> list[tuple[str, Any, Callable[[], str]]]:
+        """
+        Refactored to use a mapping approach instead of sequential ifs.
+        """
+        all_cols = []
         is_all = r.check_type == S3SecurityScanType.ALL
 
-        if is_all or r.check_type == S3SecurityScanType.PUBLIC_ACCESS:
-            columns.append(
+        mappings = {
+            S3SecurityScanType.PUBLIC_ACCESS: [
                 (
                     "Public Access Block",
-                    r.public_access_block_status,
-                    lambda: cls._render_bool(
-                        r.public_access_block_status,
+                    lambda x: x.public_access_block_status,
+                    lambda x: cls._render_bool(
+                        x.public_access_block_status,
                         invert=False,
                         true_text="Blocked",
                         false_text="OPEN",
                     ),
                 )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.POLICY:
-            columns.append(
+            ],
+            S3SecurityScanType.POLICY: [
                 (
                     "Policy Access",
-                    r.policy_access,
-                    lambda: cls._render_policy(r.policy_access),
-                )
-            )
-            columns.append(
+                    lambda x: x.policy_access,
+                    lambda x: cls._render_policy(x.policy_access),
+                ),
                 (
                     "SSL Enforced",
-                    r.ssl_enforced,
-                    lambda: cls._render_bool(r.ssl_enforced),
-                )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.ENCRYPTION:
-            columns.append(
+                    lambda x: x.ssl_enforced,
+                    lambda x: cls._render_bool(x.ssl_enforced),
+                ),
+            ],
+            S3SecurityScanType.ENCRYPTION: [
                 (
                     "Encryption",
-                    r.encryption,
-                    lambda: cls._render_encryption(r.encryption),
-                )
-            )
-            columns.append(
+                    lambda x: x.encryption,
+                    lambda x: cls._render_encryption(x.encryption),
+                ),
                 (
                     "SSE-C",
-                    r.sse_c,
-                    lambda: cls._render_bool(
-                        r.sse_c, true_text="Blocked", false_text="Allowed"
+                    lambda x: x.sse_c,
+                    lambda x: cls._render_bool(
+                        x.sse_c, true_text="Blocked", false_text="Allowed"
                     ),
-                )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.ACLS:
-            columns.append(
+                ),
+            ],
+            S3SecurityScanType.ACLS: [
                 (
                     "ACL Status",
-                    r.acl_status,
-                    lambda: cls._render_acl(r.acl_status, r.log_target),
-                )
-            )
-            columns.append(
-                ("Log Target", r.log_target, lambda: "Yes" if r.log_target else "No")
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.VERSIONING:
-            columns.append(
+                    lambda x: x.acl_status,
+                    lambda x: cls._render_acl(x.acl_status, x.log_target),
+                ),
+                (
+                    "Log Target",
+                    lambda x: x.log_target,
+                    lambda x: "Yes" if x.log_target else "No",
+                ),
+            ],
+            S3SecurityScanType.VERSIONING: [
                 (
                     "Versioning",
-                    r.versioning,
-                    lambda: cls._render_simple_status(r.versioning),
-                )
-            )
-            columns.append(
+                    lambda x: x.versioning,
+                    lambda x: cls._render_simple_status(x.versioning),
+                ),
                 (
                     "MFA Delete",
-                    r.mfa_delete,
-                    lambda: cls._render_simple_status(r.mfa_delete),
-                )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.OBJECT_LOCK:
-            columns.append(
+                    lambda x: x.mfa_delete,
+                    lambda x: cls._render_simple_status(x.mfa_delete),
+                ),
+            ],
+            S3SecurityScanType.OBJECT_LOCK: [
                 (
                     "Object Lock",
-                    r.object_lock,
-                    lambda: cls._render_simple_status(r.object_lock),
+                    lambda x: x.object_lock,
+                    lambda x: cls._render_simple_status(x.object_lock),
                 )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.NAME_PREDICTABILITY:
-            columns.append(
+            ],
+            S3SecurityScanType.NAME_PREDICTABILITY: [
                 (
                     "Name Predictability",
-                    r.name_predictability,
-                    lambda: cls._render_predictability(r.name_predictability),
+                    lambda x: x.name_predictability,
+                    lambda x: cls._render_predictability(x.name_predictability),
                 )
-            )
-
-        if is_all or r.check_type == S3SecurityScanType.WEBSITE_HOSTING:
-            columns.append(
+            ],
+            S3SecurityScanType.WEBSITE_HOSTING: [
                 (
                     "Website Hosting",
-                    r.website_hosting,
-                    lambda: cls._render_bool(
-                        not r.website_hosting,
+                    lambda x: x.website_hosting,
+                    lambda x: cls._render_bool(
+                        not x.website_hosting,
                         true_text="Disabled",
                         false_text="Enabled",
                     ),
                 )
-            )
+            ],
+        }
 
-        return columns
+        for check_type, cols in mappings.items():
+            if is_all or r.check_type == check_type:
+                for name, data_fn, render_fn in cols:
+                    all_cols.append(
+                        (name, data_fn(r), lambda rf=render_fn, obj=r: rf(obj))
+                    )
+
+        return all_cols
 
     @staticmethod
     def _render_bool(
@@ -219,18 +215,18 @@ class S3SecurityView:
         return colorize(value, color)
 
     @staticmethod
-    def _render_encryption(val: str) -> str:
-        if val != "None":
-            return colorize(val, AuditStatus.PASS)
+    def _render_encryption(value: str) -> str:
+        if value != "None":
+            return colorize(value, AuditStatus.PASS)
         return colorize("Missing", AuditStatus.WARN)
 
     @staticmethod
-    def _render_policy(val: str) -> str:
-        if val == "Private":
-            return colorize(val, AuditStatus.PASS)
-        if val == "Potentially Public":
-            return colorize(val, AuditStatus.WARN)
-        return colorize(val, AuditStatus.FAIL)
+    def _render_policy(value: str) -> str:
+        if value == "Private":
+            return colorize(value, AuditStatus.PASS)
+        if value == "Potentially Public":
+            return colorize(value, AuditStatus.WARN)
+        return colorize(value, AuditStatus.FAIL)
 
     @staticmethod
     def _render_acl(status: str, is_log_target: bool) -> str:
@@ -241,7 +237,7 @@ class S3SecurityView:
         return colorize(text, color)
 
     @staticmethod
-    def _render_predictability(val: str) -> str:
-        if val == "LOW":
-            return colorize(val, AuditStatus.PASS)
-        return colorize(val, AuditStatus.WARN)
+    def _render_predictability(value: str) -> str:
+        if value == "LOW":
+            return colorize(value, AuditStatus.PASS)
+        return colorize(value, AuditStatus.WARN)

@@ -16,11 +16,11 @@ $ sto [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `s3`: S3 Audit Commands
+* `s3`: S3 Auditing &amp; Inventory
 
 ## `sto s3`
 
-S3 Audit Commands
+S3 Auditing &amp; Inventory
 
 **Usage**:
 
@@ -35,6 +35,7 @@ $ sto s3 [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `security`: S3 Security Audits
+* `inventory`: S3 Inventory &amp; Cost Analysis
 
 ### `sto s3 security`
 
@@ -52,19 +53,19 @@ $ sto s3 security [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `all`: Run ALL S3 Security checks.
-* `encryption`: Scan for Encryption configuration.
-* `public-access`: Scan for Public Access Block configuration.
-* `policy`: Scan for Bucket Policy compliance (SSL &amp;...
+* `all`: Run ALL S3 Security checks
+* `encryption`: Scan for Encryption configuration
+* `public-access`: Scan for Public Access Block configuration
+* `policy`: Scan for Bucket Policy compliance
 * `acls`: Scan for Legacy ACL usage and Log Delivery...
 * `versioning`: Scan for Versioning and MFA Delete...
-* `object-lock`: Scan for Object Lock configuration.
-* `naming`: Scan for Predictable Bucket Names (Entropy...
-* `website`: Scan for Static Website Hosting...
+* `object-lock`: Scan for Object Lock configuration
+* `naming`: Scan for Predictable Bucket Names
+* `website`: Scan for Static Website Hosting configuration
 
 #### `sto s3 security all`
 
-Run ALL S3 Security checks.
+Run ALL S3 Security checks
 
 **Usage**:
 
@@ -75,7 +76,6 @@ $ sto s3 security all [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`: Exit code 1 if risks found
 * `--json`: Output raw JSON
 * `--csv`: Output CSV
 * `--failures-only`: Only display resources with risks
@@ -84,7 +84,7 @@ $ sto s3 security all [OPTIONS]
 
 #### `sto s3 security encryption`
 
-Scan for Encryption configuration.
+Scan for Encryption configuration
 
 **Usage**:
 
@@ -95,16 +95,15 @@ $ sto s3 security encryption [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security public-access`
 
-Scan for Public Access Block configuration.
+Scan for Public Access Block configuration
 
 **Usage**:
 
@@ -115,16 +114,15 @@ $ sto s3 security public-access [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security policy`
 
-Scan for Bucket Policy compliance (SSL &amp; Public permissions).
+Scan for Bucket Policy compliance
 
 **Usage**:
 
@@ -135,16 +133,15 @@ $ sto s3 security policy [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security acls`
 
-Scan for Legacy ACL usage and Log Delivery compliance.
+Scan for Legacy ACL usage and Log Delivery compliance
 
 **Usage**:
 
@@ -155,16 +152,15 @@ $ sto s3 security acls [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security versioning`
 
-Scan for Versioning and MFA Delete configuration.
+Scan for Versioning and MFA Delete configuration
 
 **Usage**:
 
@@ -175,16 +171,15 @@ $ sto s3 security versioning [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security object-lock`
 
-Scan for Object Lock configuration.
+Scan for Object Lock configuration
 
 **Usage**:
 
@@ -195,16 +190,15 @@ $ sto s3 security object-lock [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security naming`
 
-Scan for Predictable Bucket Names (Entropy check).
+Scan for Predictable Bucket Names
 
 **Usage**:
 
@@ -215,16 +209,15 @@ $ sto s3 security naming [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
 #### `sto s3 security website`
 
-Scan for Static Website Hosting configuration.
+Scan for Static Website Hosting configuration
 
 **Usage**:
 
@@ -235,9 +228,63 @@ $ sto s3 security website [OPTIONS]
 **Options**:
 
 * `--verbose / --no-verbose`: [default: no-verbose]
-* `--fail-on-risk`
-* `--json`
-* `--csv`
-* `--failures-only`
-* `--org-role TEXT`
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--failures-only`: Only display resources with risks
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+### `sto s3 inventory`
+
+S3 Inventory &amp; Cost Analysis
+
+**Usage**:
+
+```console
+$ sto s3 inventory [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `all`: Run all scan.
+* `scan`: Gather an inventory of S3 Buckets
+
+#### `sto s3 inventory all`
+
+Run all scan.
+
+**Usage**:
+
+```console
+$ sto s3 inventory all [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+#### `sto s3 inventory scan`
+
+Gather an inventory of S3 Buckets
+
+**Usage**:
+
+```console
+$ sto s3 inventory scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
