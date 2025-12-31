@@ -17,6 +17,7 @@ $ sto [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `s3`: S3 Auditing &amp; Inventory
+* `ec2`: EC2 Auditing &amp; Inventory
 
 ## `sto s3`
 
@@ -286,5 +287,80 @@ $ sto s3 inventory scan [OPTIONS]
 * `--verbose / --no-verbose`: [default: no-verbose]
 * `--json`: Output raw JSON
 * `--csv`: Output CSV
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+## `sto ec2`
+
+EC2 Auditing &amp; Inventory
+
+**Usage**:
+
+```console
+$ sto ec2 [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `inventory`: EC2 Inventory &amp; Audit
+
+### `sto ec2 inventory`
+
+EC2 Inventory &amp; Audit
+
+**Usage**:
+
+```console
+$ sto ec2 inventory [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `all`: Run all scan.
+* `scan`: Gather a comprehensive inventory of EC2...
+
+#### `sto ec2 inventory all`
+
+Run all scan.
+
+**Usage**:
+
+```console
+$ sto ec2 inventory all [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+#### `sto ec2 inventory scan`
+
+Gather a comprehensive inventory of EC2 Instances
+
+**Usage**:
+
+```console
+$ sto ec2 inventory scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
 * `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
