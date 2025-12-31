@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import ClientError, NoCredentialsError, NoRegionError
 from rich.console import Console
 
 from strato.core.models import AuditResult, BaseScanner
@@ -35,11 +35,21 @@ def get_org_accounts() -> list[dict]:
     except ClientError as e:
         console_err.print(f"[bold red]Error listing accounts:[/bold red] {e}")
         sys.exit(1)
+    except NoRegionError:
+        console_err.print(
+            "[bold red]Error:[/bold red] No AWS region specified. "
+            "Please set "
+            "[green]AWS_DEFAULT_REGION[/green] or use the "
+            "[green]--region[/green] flag."
+        )
+        sys.exit(1)
 
     return accounts
 
 
-def assume_role_session(account_id: str, role_name: str) -> boto3.Session | None:
+def assume_role_session(
+    account_id: str, role_name: str, region: str | None = None
+) -> boto3.Session | None:
     sts_client = boto3.client("sts")
     role_arn = f"arn:aws:iam::{account_id}:role/{role_name}"
 
@@ -52,29 +62,37 @@ def assume_role_session(account_id: str, role_name: str) -> boto3.Session | None
             aws_access_key_id=creds["AccessKeyId"],
             aws_secret_access_key=creds["SecretAccessKey"],
             aws_session_token=creds["SessionToken"],
+            region_name=region,
         )
     except ClientError:
         return None
+    except NoRegionError:
+        return None
 
 
-def _scan_single_account(
+def scan_single_account(
     account_id: str,
     account_name: str,
     role_name: str | None,
     scanner_cls: type[BaseScanner],
     check_type: str,
+    region: str | None = None,
 ) -> tuple[list[AuditResult], str | None]:
-    if role_name:
-        session = assume_role_session(account_id, role_name)
-        if not session:
-            return [], f"Access Denied: {account_id} ({account_name})"
-    else:
-        session = boto3.Session()
-
-    scanner = scanner_cls(check_type=check_type, session=session, account_id=account_id)
-
     try:
+        if role_name:
+            session = assume_role_session(account_id, role_name, region)
+            if not session:
+                return [], f"Access Denied: {account_id} ({account_name})"
+        else:
+            session = boto3.Session(region_name=region)
+
+        scanner = scanner_cls(
+            check_type=check_type, session=session, account_id=account_id
+        )
         return scanner.scan(silent=True), None
+
+    except NoRegionError:
+        return [], f"Configuration Error: No Region specified for {account_id}"
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         return [], f"AWS Error: {account_id} - {error_code}: {e}"
@@ -83,8 +101,27 @@ def _scan_single_account(
 
 
 def _execute_multi_account_scan(
-    scanner_cls: type[BaseScanner], check_type: str, org_role: str
+    scanner_cls: type[BaseScanner],
+    check_type: str,
+    org_role: str,
+    region: str | None = None,
 ) -> list[AuditResult]:
+    if not scanner_cls.is_global_service:
+        if not region and not boto3.Session().region_name:
+            console_err.print(
+                "[bold red]"
+                "Configuration Error:"
+                "[/bold red] You must specify a region for multi-account scans.\n"
+                "Use the "
+                "[green]--region"
+                "[/green] flag or set the "
+                "[green]AWS_DEFAULT_REGION[/green] environment variable."
+            )
+            sys.exit(1)
+
+    if scanner_cls.is_global_service and not region:
+        region = "us-east-1"
+
     accounts = get_org_accounts()
     all_results = []
     skipped = []
@@ -100,12 +137,13 @@ def _execute_multi_account_scan(
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
                 executor.submit(
-                    _scan_single_account,
+                    scan_single_account,
                     acc["Id"],
                     acc["Name"],
                     org_role,
                     scanner_cls,
                     check_type,
+                    region,
                 ): acc
                 for acc in accounts
             }
@@ -137,22 +175,52 @@ def run_scan(
     failures_only: bool,
     org_role: str = None,
     view_class: Any = None,
+    region: str | None = None,
 ):
     setup_logging(verbose)
 
     if org_role:
-        all_results = _execute_multi_account_scan(scanner_cls, check_type, org_role)
+        all_results = _execute_multi_account_scan(
+            scanner_cls, check_type, org_role, region
+        )
     else:
         silent_mode = json_output or csv_output
         sts = boto3.client("sts")
+
+        current_account = "Unknown"
+
         try:
             current_account = sts.get_caller_identity()["Account"]
         except (ClientError, NoCredentialsError):
             current_account = "Unknown"
+        except NoRegionError:
+            pass
 
-        scanner = scanner_cls(check_type=check_type, account_id=current_account)
         try:
+            if scanner_cls.is_global_service and not region:
+                region = "us-east-1"
+
+            session = boto3.Session(region_name=region)
+
+            if not scanner_cls.is_global_service and not session.region_name:
+                raise NoRegionError()
+
+            scanner = scanner_cls(
+                check_type=check_type, session=session, account_id=current_account
+            )
             all_results = scanner.scan(silent=silent_mode)
+
+        except NoRegionError:
+            console_err.print(
+                "\n[bold red]Configuration Error:[/bold red] No AWS region specified."
+            )
+            console_err.print(
+                "Please provide a region using the "
+                "[green]--region"
+                "[/green] flag or set the "
+                "[green]AWS_DEFAULT_REGION[/green] environment variable.\n"
+            )
+            return 1
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             console_err.print(

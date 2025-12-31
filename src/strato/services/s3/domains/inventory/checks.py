@@ -107,6 +107,8 @@ class S3InventoryScanner(BaseScanner[S3InventoryResult]):
         super().__init__(check_type, session, account_id)
         self.client = S3Client(session=self.session)
 
+    is_global_service = True
+
     @property
     def service_name(self) -> str:
         return f"S3 Inventory ({self.check_type})"

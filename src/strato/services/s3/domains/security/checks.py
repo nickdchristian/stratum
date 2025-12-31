@@ -186,6 +186,8 @@ class S3SecurityScanner(BaseScanner[S3SecurityResult]):
         super().__init__(check_type, session, account_id)
         self.client = S3Client(session=self.session)
 
+    is_global_service = True
+
     @property
     def service_name(self) -> str:
         return f"S3 Security ({self.check_type})"

@@ -72,6 +72,8 @@ T = TypeVar("T", bound=AuditResult)
 class BaseScanner[AuditResultType: AuditResult](ABC):
     """Abstract base class for all resource scanners."""
 
+    is_global_service: bool = False
+
     def __init__(
         self,
         check_type: str = "ALL",
