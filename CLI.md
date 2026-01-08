@@ -18,6 +18,7 @@ $ sto [OPTIONS] COMMAND [ARGS]...
 
 * `s3`: S3 Auditing &amp; Inventory
 * `ec2`: EC2 Auditing &amp; Inventory
+* `lambda`: Lambda Auditing &amp; Inventory
 
 ## `sto s3`
 
@@ -362,5 +363,60 @@ $ sto ec2 inventory scan [OPTIONS]
 * `--json`: Output raw JSON
 * `--csv`: Output CSV
 * `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+## `sto lambda`
+
+Lambda Auditing &amp; Inventory
+
+**Usage**:
+
+```console
+$ sto lambda [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `inventory`: Lambda Inventory &amp; Audit
+
+### `sto lambda inventory`
+
+Lambda Inventory &amp; Audit
+
+**Usage**:
+
+```console
+$ sto lambda inventory [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `scan`: Gather a comprehensive inventory of Lambda...
+
+#### `sto lambda inventory scan`
+
+Gather a comprehensive inventory of Lambda Functions
+
+**Usage**:
+
+```console
+$ sto lambda inventory scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan
 * `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
