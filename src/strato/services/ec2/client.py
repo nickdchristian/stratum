@@ -65,6 +65,16 @@ class EC2Client:
                 instances.extend(reservation.get("Instances", []))
         return instances
 
+    @safe_aws_call(default=[])
+    def get_reserved_instances(self) -> list[dict[str, Any]]:
+        """
+        Retrieves active Reserved Instances.
+        """
+        response = self._client.describe_reserved_instances(
+            Filters=[{"Name": "state", "Values": ["active", "retired"]}]
+        )
+        return response.get("ReservedInstances", [])
+
     @safe_aws_call(default={})
     def get_image_details(self, image_id: str) -> dict[str, Any]:
         """

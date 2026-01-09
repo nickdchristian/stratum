@@ -115,3 +115,20 @@ def test_get_memory_utilization_with_data(ec2_client_wrapper):
 
     val = ec2_client_wrapper.get_memory_utilization("i-1")
     assert val == 55.5
+
+
+def test_get_reserved_instances(ec2_client_wrapper):
+    ec2_client_wrapper._client.describe_reserved_instances.return_value = {
+        "ReservedInstances": [
+            {"ReservedInstancesId": "ri-1", "State": "active"},
+            {"ReservedInstancesId": "ri-2", "State": "retired"},
+        ]
+    }
+
+    ris = ec2_client_wrapper.get_reserved_instances()
+    assert len(ris) == 2
+    assert ris[0]["ReservedInstancesId"] == "ri-1"
+    # Ensure the filter was applied in the call
+    ec2_client_wrapper._client.describe_reserved_instances.assert_called_with(
+        Filters=[{"Name": "state", "Values": ["active", "retired"]}]
+    )

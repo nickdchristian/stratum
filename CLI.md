@@ -309,6 +309,7 @@ $ sto ec2 [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `inventory`: EC2 Inventory &amp; Audit
+* `reserved`: EC2 Reserved Instance Contracts
 
 ### `sto ec2 inventory`
 
@@ -364,6 +365,43 @@ $ sto ec2 inventory scan [OPTIONS]
 * `--json`: Output raw JSON
 * `--csv`: Output CSV
 * `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+### `sto ec2 reserved`
+
+EC2 Reserved Instance Contracts
+
+**Usage**:
+
+```console
+$ sto ec2 reserved [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `scan`: Scan for Purchased Reserved Instances...
+
+#### `sto ec2 reserved scan`
+
+Scan for Purchased Reserved Instances (Active Contracts).
+
+**Usage**:
+
+```console
+$ sto ec2 reserved scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan
 * `--org-role TEXT`: IAM role to assume for multi-account scan
 * `--help`: Show this message and exit.
 
