@@ -19,6 +19,7 @@ $ sto [OPTIONS] COMMAND [ARGS]...
 * `s3`: S3 Auditing &amp; Inventory
 * `ec2`: EC2 Auditing &amp; Inventory
 * `lambda`: Lambda Auditing &amp; Inventory
+* `rds`: RDS Auditing &amp; Inventory
 
 ## `sto s3`
 
@@ -410,6 +411,119 @@ Gather a comprehensive inventory of Lambda Functions
 
 ```console
 $ sto lambda inventory scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+## `sto rds`
+
+RDS Auditing &amp; Inventory
+
+**Usage**:
+
+```console
+$ sto rds [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `inventory`: RDS Inventory &amp; Audit
+* `reserved`: RDS Reserved Instance Contracts
+
+### `sto rds inventory`
+
+RDS Inventory &amp; Audit
+
+**Usage**:
+
+```console
+$ sto rds inventory [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `all`: Run all scan.
+* `scan`: Gather a comprehensive inventory of RDS...
+
+#### `sto rds inventory all`
+
+Run all scan.
+
+**Usage**:
+
+```console
+$ sto rds inventory all [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+#### `sto rds inventory scan`
+
+Gather a comprehensive inventory of RDS Instances
+
+**Usage**:
+
+```console
+$ sto rds inventory scan [OPTIONS]
+```
+
+**Options**:
+
+* `--verbose / --no-verbose`: [default: no-verbose]
+* `--json`: Output raw JSON
+* `--csv`: Output CSV
+* `--region TEXT`: Specific AWS Region to scan (e.g. us-east-1)
+* `--org-role TEXT`: IAM role to assume for multi-account scan
+* `--help`: Show this message and exit.
+
+### `sto rds reserved`
+
+RDS Reserved Instance Contracts
+
+**Usage**:
+
+```console
+$ sto rds reserved [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `scan`: Scan for Purchased Reserved Instances...
+
+#### `sto rds reserved scan`
+
+Scan for Purchased Reserved Instances (Active Contracts).
+
+**Usage**:
+
+```console
+$ sto rds reserved scan [OPTIONS]
 ```
 
 **Options**:
